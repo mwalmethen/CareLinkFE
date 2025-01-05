@@ -9,7 +9,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
-const DailyTasksScreen = () => {
+const DailyTasksScreen = ({ navigation }) => {
   const [selectedDate, setSelectedDate] = useState("20"); // Current selected date
 
   const dates = [
@@ -47,7 +47,15 @@ const DailyTasksScreen = () => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => {
+            // This will navigate back to the main screen
+            navigation.reset({
+              index: 0,
+              routes: [{ name: "Main" }],
+            });
+          }}
+        >
           <Ionicons name="arrow-back" size={24} color="#000" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Daily Tasks</Text>

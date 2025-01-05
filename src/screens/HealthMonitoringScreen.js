@@ -11,7 +11,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { LineChart } from "react-native-chart-kit";
 
-const HealthMonitoringScreen = () => {
+const HealthMonitoringScreen = ({ navigation }) => {
   const [selectedMetric, setSelectedMetric] = useState("Blood Pressure");
 
   const metrics = ["Heart Rate", "Blood Pressure", "Glucose Level"];
@@ -47,14 +47,19 @@ const HealthMonitoringScreen = () => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => {
+            navigation.reset({
+              index: 0,
+              routes: [{ name: "Main" }],
+            });
+          }}
+        >
           <Ionicons name="arrow-back" size={24} color="#000" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>AI Health Monitoring</Text>
+        <Text style={styles.headerTitle}>Health Monitoring</Text>
         <TouchableOpacity>
-          <View style={styles.profileIcon}>
-            <Ionicons name="person" size={24} color="#666" />
-          </View>
+          <Ionicons name="person-circle-outline" size={24} color="#000" />
         </TouchableOpacity>
       </View>
 
@@ -159,14 +164,6 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontWeight: "600",
-  },
-  profileIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "#E1E1E1",
-    justifyContent: "center",
-    alignItems: "center",
   },
   content: {
     flex: 1,
