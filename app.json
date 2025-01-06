@@ -1,28 +1,27 @@
 {
   "expo": {
-    "name": "carelinkapp",
+    "name": "CareLink",
     "slug": "carelinkapp",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
-    "newArchEnabled": true,
+    "icon": "./assets/CareLink.webp",
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/CareLink.webp",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
+    "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": true
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/CareLink.webp",
         "backgroundColor": "#ffffff"
       }
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/CareLink.webp"
     }
   }
 }
