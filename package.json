@@ -21,7 +21,8 @@
     "react-native-gesture-handler": "^2.21.2",
     "react-native-safe-area-context": "^5.0.0",
     "react-native-screens": "^4.4.0",
-    "expo-image-picker": "~16.0.3"
+    "expo-image-picker": "~16.0.3",
+    "@react-native-community/datetimepicker": "8.2.0"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0"

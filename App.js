@@ -12,6 +12,7 @@ import RegisterScreen from "./src/screens/RegisterScreen";
 import DailyTasksScreen from "./src/screens/DailyTasksScreen";
 import GenerateReportScreen from "./src/screens/GenerateReportScreen";
 import HealthMonitoringScreen from "./src/screens/HealthMonitoringScreen";
+import CreateTaskScreen from "./src/screens/CreateTaskScreen";
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -76,6 +77,7 @@ export default function App() {
           <Stack.Screen name="Login" component={LoginScreen} />
           <Stack.Screen name="Register" component={RegisterScreen} />
           <Stack.Screen name="HomeTabs" component={MainTabs} />
+          <Stack.Screen name="CreateTask" component={CreateTaskScreen} />
         </Stack.Navigator>
       </NavigationContainer>
     </SafeAreaProvider>

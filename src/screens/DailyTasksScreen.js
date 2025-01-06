@@ -10,23 +10,24 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
 const DailyTasksScreen = ({ navigation }) => {
-  const [selectedDate, setSelectedDate] = useState("20"); // Current selected date
+  const [selectedDate, setSelectedDate] = useState("6"); // Current selected date
 
   const dates = [
-    { day: "SUN", date: "19" },
-    { day: "MON", date: "20" },
-    { day: "TUE", date: "21" },
-    { day: "WED", date: "22" },
-    { day: "THU", date: "23" },
+    { day: "SUN", date: "5" },
+    { day: "MON", date: "6" },
+    { day: "TUE", date: "7" },
+    { day: "WED", date: "8" },
+    { day: "THU", date: "9" },
   ];
 
-  const tasks = [
+  const allTasks = [
     {
       id: 1,
       title: "Physiotherapy session",
       time: "07:30 AM - 08:00 AM",
       assignedTo: "Me",
       completed: true,
+      date: "6", // Monday's task
     },
     {
       id: 2,
@@ -34,6 +35,7 @@ const DailyTasksScreen = ({ navigation }) => {
       time: "01:30 PM - 03:00 PM",
       assignedTo: "Abdullah",
       completed: false,
+      date: "6", // Monday's task
     },
     {
       id: 3,
@@ -41,15 +43,40 @@ const DailyTasksScreen = ({ navigation }) => {
       time: "04:30 PM - 05:00 PM",
       assignedTo: "Mother",
       completed: false,
+      date: "7", // Tuesday's task
+    },
+    {
+      id: 4,
+      title: "Blood pressure check",
+      time: "09:00 AM - 09:30 AM",
+      assignedTo: "Father",
+      completed: false,
+      date: "8", // Wednesday's task
+    },
+    {
+      id: 5,
+      title: "Doctor's appointment",
+      time: "11:00 AM - 12:00 PM",
+      assignedTo: "Mother",
+      completed: false,
+      date: "5", // Sunday's task
     },
   ];
+
+  // Filter tasks based on selected date
+  const filteredTasks = allTasks.filter((task) => task.date === selectedDate);
+
+  // Calculate progress for the selected date
+  const completedTasks = filteredTasks.filter((task) => task.completed).length;
+  const totalTasks = filteredTasks.length;
+  const progressPercentage =
+    totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity
           onPress={() => {
-            // This will navigate back to the main screen
             navigation.reset({
               index: 0,
               routes: [{ name: "Main" }],
@@ -70,14 +97,18 @@ const DailyTasksScreen = ({ navigation }) => {
         </View>
         <Text style={styles.progressTitle}>TODAY'S PROGRESS</Text>
         <View style={styles.progressBar}>
-          <View style={[styles.progressFill, { width: "25%" }]} />
+          <View
+            style={[styles.progressFill, { width: `${progressPercentage}%` }]}
+          />
         </View>
-        <Text style={styles.progressText}>25% of care plan is completed!</Text>
+        <Text style={styles.progressText}>
+          {progressPercentage.toFixed(0)}% of care plan is completed!
+        </Text>
       </View>
 
       <View style={styles.calendarSection}>
         <View style={styles.monthSelector}>
-          <Text style={styles.monthText}>May 2023</Text>
+          <Text style={styles.monthText}>January 2025</Text>
           <Ionicons name="chevron-down" size={20} color="#000" />
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -107,6 +138,8 @@ const DailyTasksScreen = ({ navigation }) => {
                 >
                   {item.date}
                 </Text>
+                {allTasks.filter((task) => task.date === item.date).length >
+                  0 && <View style={styles.taskIndicator} />}
               </TouchableOpacity>
             ))}
           </View>
@@ -114,46 +147,52 @@ const DailyTasksScreen = ({ navigation }) => {
       </View>
 
       <ScrollView style={styles.taskList}>
-        {tasks.map((task) => (
-          <View key={task.id} style={styles.taskItem}>
-            <View style={styles.taskHeader}>
-              <Text
-                style={[
-                  styles.taskTitle,
-                  task.completed && styles.completedTaskTitle,
-                ]}
+        {filteredTasks.length > 0 ? (
+          filteredTasks.map((task) => (
+            <View key={task.id} style={styles.taskItem}>
+              <View style={styles.taskHeader}>
+                <Text
+                  style={[
+                    styles.taskTitle,
+                    task.completed && styles.completedTaskTitle,
+                  ]}
+                >
+                  {task.title}
+                </Text>
+                <TouchableOpacity>
+                  <Ionicons name="ellipsis-horizontal" size={20} color="#666" />
+                </TouchableOpacity>
+              </View>
+              <View style={styles.taskDetails}>
+                <View style={styles.timeContainer}>
+                  <Ionicons name="time-outline" size={16} color="#666" />
+                  <Text style={styles.timeText}>{task.time}</Text>
+                </View>
+                <View style={styles.assigneeContainer}>
+                  <Text style={styles.assigneeLabel}>Assigned to</Text>
+                  <Text style={styles.assigneeName}>{task.assignedTo}</Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                style={[styles.checkbox, task.completed && styles.checkedBox]}
               >
                 {task.completed && (
-                  <Text style={styles.strikethrough}>{task.title}</Text>
+                  <Ionicons name="checkmark" size={16} color="white" />
                 )}
-                {!task.completed && task.title}
-              </Text>
-              <TouchableOpacity>
-                <Ionicons name="ellipsis-horizontal" size={20} color="#666" />
               </TouchableOpacity>
             </View>
-            <View style={styles.taskDetails}>
-              <View style={styles.timeContainer}>
-                <Ionicons name="time-outline" size={16} color="#666" />
-                <Text style={styles.timeText}>{task.time}</Text>
-              </View>
-              <View style={styles.assigneeContainer}>
-                <Text style={styles.assigneeLabel}>Assigned to</Text>
-                <Text style={styles.assigneeName}>{task.assignedTo}</Text>
-              </View>
-            </View>
-            <TouchableOpacity
-              style={[styles.checkbox, task.completed && styles.checkedBox]}
-            >
-              {task.completed && (
-                <Ionicons name="checkmark" size={16} color="white" />
-              )}
-            </TouchableOpacity>
+          ))
+        ) : (
+          <View style={styles.noTasksContainer}>
+            <Text style={styles.noTasksText}>No tasks for this date</Text>
           </View>
-        ))}
+        )}
       </ScrollView>
 
-      <TouchableOpacity style={styles.addButton}>
+      <TouchableOpacity
+        style={styles.addButton}
+        onPress={() => navigation.navigate("CreateTask")}
+      >
         <Text style={styles.addButtonText}>+ New Task</Text>
       </TouchableOpacity>
     </SafeAreaView>
@@ -333,6 +372,25 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 16,
     fontWeight: "600",
+  },
+  taskIndicator: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "#4A90E2",
+    position: "absolute",
+    bottom: 8,
+  },
+  noTasksContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 32,
+  },
+  noTasksText: {
+    fontSize: 16,
+    color: "#666",
+    textAlign: "center",
   },
 });
 

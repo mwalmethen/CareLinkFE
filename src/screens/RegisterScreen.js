@@ -38,26 +38,6 @@ const RegisterScreen = ({ navigation }) => {
     return () => backHandler.remove();
   }, [navigation]);
 
-  const pickImage = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-    if (status !== "granted") {
-      alert("Sorry, we need camera roll permissions to make this work!");
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 1,
-    });
-
-    if (!result.canceled) {
-      setProfileImage(result.assets[0].uri);
-    }
-  };
-
   return (
     <SafeAreaView style={styles.container}>
       <TouchableOpacity
@@ -178,26 +158,6 @@ const RegisterScreen = ({ navigation }) => {
                   />
                 </View>
               </View>
-
-              <Text style={styles.optionalText}>
-                Profile Picture (Optional)
-              </Text>
-              <TouchableOpacity
-                style={styles.imagePickerContainer}
-                onPress={pickImage}
-              >
-                {profileImage ? (
-                  <Image
-                    source={{ uri: profileImage }}
-                    style={styles.previewImage}
-                  />
-                ) : (
-                  <View style={styles.placeholderContainer}>
-                    <Ionicons name="camera" size={30} color="#4A90E2" />
-                    <Text style={styles.placeholderText}>Add Photo</Text>
-                  </View>
-                )}
-              </TouchableOpacity>
             </View>
 
             <TouchableOpacity
