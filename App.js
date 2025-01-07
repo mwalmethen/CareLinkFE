@@ -13,6 +13,7 @@ import DailyTasksScreen from "./src/screens/DailyTasksScreen";
 import GenerateReportScreen from "./src/screens/GenerateReportScreen";
 import HealthMonitoringScreen from "./src/screens/HealthMonitoringScreen";
 import CreateTaskScreen from "./src/screens/CreateTaskScreen";
+import EmergencyButton from "./src/screens/EmergencyButton";
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -30,6 +31,8 @@ function MainTabs() {
             iconName = focused ? "document-text" : "document-text-outline";
           } else if (route.name === "HealthMonitoring") {
             iconName = focused ? "pulse" : "pulse-outline";
+          } else if (route.name === "Emergency") {
+            iconName = focused ? "alert-circle" : "alert-circle-outline";
           }
 
           return <Ionicons name={iconName} size={size} color={color} />;
@@ -58,6 +61,13 @@ function MainTabs() {
         component={HealthMonitoringScreen}
         options={{
           title: "Health Monitoring",
+        }}
+      />
+      <Tab.Screen
+        name="Emergency"
+        component={EmergencyButton}
+        options={{
+          title: "Emergency",
         }}
       />
     </Tab.Navigator>
