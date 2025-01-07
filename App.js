@@ -13,6 +13,7 @@ import DailyTasksScreen from "./src/screens/DailyTasksScreen";
 import GenerateReportScreen from "./src/screens/GenerateReportScreen";
 import HealthMonitoringScreen from "./src/screens/HealthMonitoringScreen";
 import CreateTaskScreen from "./src/screens/CreateTaskScreen";
+import ProfileScreen from "./src/screens/ProfileScreen";
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -58,6 +59,13 @@ function MainTabs() {
         component={HealthMonitoringScreen}
         options={{
           title: "Health Monitoring",
+        }}
+      />
+      <Tab.Screen
+        name="Profile"
+        component={ProfileScreen}
+        options={{
+          title: "Profile",
         }}
       />
     </Tab.Navigator>
