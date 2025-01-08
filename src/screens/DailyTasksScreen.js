@@ -237,6 +237,12 @@ const DailyTasksScreen = ({ navigation }) => {
       >
         <Text style={styles.addButtonText}>+ New Task</Text>
       </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.addButton}
+        onPress={() => navigation.navigate("EmergencyButton")}
+      >
+        <Text style={styles.addButtonText}>+ Emergency Button</Text>
+      </TouchableOpacity>
 
       {/* Task Detail Modal */}
       <Modal

@@ -94,6 +94,10 @@ export default function App() {
               <Stack.Screen name="Register" component={RegisterScreen} />
               <Stack.Screen name="HomeTabs" component={MainTabs} />
               <Stack.Screen name="CreateTask" component={CreateTaskScreen} />
+              <Stack.Screen
+                name="EmergencyButton"
+                component={EmergencyButton}
+              />
             </Stack.Navigator>
           </NavigationContainer>
         </SafeAreaProvider>
