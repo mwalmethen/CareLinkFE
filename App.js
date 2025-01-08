@@ -16,6 +16,8 @@ import GenerateReportScreen from "./src/screens/GenerateReportScreen";
 import HealthMonitoringScreen from "./src/screens/HealthMonitoringScreen";
 import CreateTaskScreen from "./src/screens/CreateTaskScreen";
 import ProfileScreen from "./src/screens/ProfileScreen";
+import LovedOneDetailsScreen from "./src/screens/LovedOneDetailsScreen";
+import TaskDetailsScreen from "./src/screens/TaskDetailsScreen";
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -93,6 +95,11 @@ export default function App() {
               <Stack.Screen name="Register" component={RegisterScreen} />
               <Stack.Screen name="HomeTabs" component={MainTabs} />
               <Stack.Screen name="CreateTask" component={CreateTaskScreen} />
+              <Stack.Screen
+                name="LovedOneDetails"
+                component={LovedOneDetailsScreen}
+              />
+              <Stack.Screen name="TaskDetails" component={TaskDetailsScreen} />
             </Stack.Navigator>
           </NavigationContainer>
         </SafeAreaProvider>

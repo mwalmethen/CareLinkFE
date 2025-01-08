@@ -137,7 +137,12 @@ const ProfileScreen = ({ navigation }) => {
           {!isLoading && !error && data?.length > 0
             ? data.map((lovedOne) => (
                 <View key={lovedOne._id} style={styles.lovedOneItem}>
-                  <View style={styles.lovedOneContent}>
+                  <TouchableOpacity
+                    style={styles.lovedOneContent}
+                    onPress={() =>
+                      navigation.navigate("LovedOneDetails", { lovedOne })
+                    }
+                  >
                     <Ionicons name="heart" size={24} color="#4A90E2" />
                     <View style={styles.lovedOneInfo}>
                       <Text style={styles.lovedOneName}>{lovedOne.name}</Text>
@@ -148,7 +153,7 @@ const ProfileScreen = ({ navigation }) => {
                         Medical History: {lovedOne.medical_history}
                       </Text>
                     </View>
-                  </View>
+                  </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.deleteButton}
                     onPress={() => handleDeleteLovedOne(lovedOne._id)}

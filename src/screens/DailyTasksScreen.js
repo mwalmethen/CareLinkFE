@@ -12,13 +12,27 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { useQuery } from "@tanstack/react-query";
+import { getAllLovedOnes } from "../api/Users";
+import { useUser } from "../api/UserContext";
 
 const DailyTasksScreen = ({ navigation }) => {
   const [selectedDate, setSelectedDate] = useState("6");
-  const [selectedTask, setSelectedTask] = useState(null);
-  const [showNoteModal, setShowNoteModal] = useState(false);
-  const [showTaskDetailModal, setShowTaskDetailModal] = useState(false);
-  const [noteText, setNoteText] = useState("");
+  const [selectedLovedOne, setSelectedLovedOne] = useState(null);
+  const [selectorVisible, setSelectorVisible] = useState(false);
+  const { token } = useUser();
+
+  const handleTaskPress = (task) => {
+    // Navigate to task details with the task data
+    navigation.navigate("TaskDetails", { task });
+  };
+
+  // Fetch loved ones
+  const { data: lovedOnes, isLoading: loadingLovedOnes } = useQuery({
+    queryKey: ["lovedOnes"],
+    queryFn: getAllLovedOnes,
+    enabled: true,
+  });
 
   const dates = [
     { day: "SUN", date: "5" },
@@ -76,35 +90,14 @@ const DailyTasksScreen = ({ navigation }) => {
     },
   ];
 
-  const handleTaskPress = (task) => {
-    setSelectedTask(task);
-    setShowTaskDetailModal(true);
-  };
+  // First filter by loved one, then by date
+  const filteredTasks = allTasks
+    .filter(
+      (task) => !selectedLovedOne || task.assignedTo === selectedLovedOne.name
+    )
+    .filter((task) => task.date === selectedDate);
 
-  const handleAddNote = () => {
-    setShowTaskDetailModal(false);
-    setNoteText(selectedTask.note);
-    setShowNoteModal(true);
-  };
-
-  const handleSaveNote = () => {
-    if (selectedTask) {
-      selectedTask.note = noteText;
-    }
-    setShowNoteModal(false);
-  };
-
-  const toggleTaskCompletion = () => {
-    if (selectedTask) {
-      selectedTask.completed = !selectedTask.completed;
-      setSelectedTask({ ...selectedTask });
-    }
-  };
-
-  // Filter tasks based on selected date
-  const filteredTasks = allTasks.filter((task) => task.date === selectedDate);
-
-  // Calculate progress for the selected date
+  // Calculate progress
   const completedTasks = filteredTasks.filter((task) => task.completed).length;
   const totalTasks = filteredTasks.length;
   const progressPercentage =
@@ -113,22 +106,16 @@ const DailyTasksScreen = ({ navigation }) => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => {
-            navigation.reset({
-              index: 0,
-              routes: [{ name: "Main" }],
-            });
-          }}
-        >
-          <Ionicons name="arrow-back" size={24} color="#000" />
-        </TouchableOpacity>
         <Text style={styles.headerTitle}>Daily Tasks</Text>
-        <TouchableOpacity>
-          <Ionicons name="person-circle-outline" size={24} color="#000" />
+        <TouchableOpacity
+          style={styles.addButton}
+          onPress={() => navigation.navigate("CreateTask")}
+        >
+          <Ionicons name="add" size={24} color="white" />
         </TouchableOpacity>
       </View>
 
+      {/* Progress Section */}
       <View style={styles.progressSection}>
         <View style={styles.profileIcon}>
           <Ionicons name="person" size={48} color="#4A90E2" />
@@ -144,6 +131,7 @@ const DailyTasksScreen = ({ navigation }) => {
         </Text>
       </View>
 
+      {/* Calendar Section */}
       <View style={styles.calendarSection}>
         <View style={styles.monthSelector}>
           <Text style={styles.monthText}>January 2025</Text>
@@ -184,6 +172,19 @@ const DailyTasksScreen = ({ navigation }) => {
         </ScrollView>
       </View>
 
+      {/* Loved One Selector */}
+      <TouchableOpacity
+        style={styles.selectorButton}
+        onPress={() => setSelectorVisible(true)}
+      >
+        <Ionicons name="person" size={20} color="#4A90E2" />
+        <Text style={styles.selectorText}>
+          {selectedLovedOne ? selectedLovedOne.name : "View All Members"}
+        </Text>
+        <Ionicons name="chevron-down" size={20} color="#4A90E2" />
+      </TouchableOpacity>
+
+      {/* Tasks List */}
       <ScrollView style={styles.taskList}>
         {filteredTasks.length > 0 ? (
           filteredTasks.map((task) => (
@@ -192,36 +193,24 @@ const DailyTasksScreen = ({ navigation }) => {
               style={styles.taskItem}
               onPress={() => handleTaskPress(task)}
             >
-              <View style={styles.taskHeader}>
-                <Text
-                  style={[
-                    styles.taskTitle,
-                    task.completed && styles.completedTaskTitle,
-                  ]}
-                >
-                  {task.title}
-                </Text>
-                {task.note && (
-                  <Ionicons name="document-text" size={20} color="#4A90E2" />
-                )}
-              </View>
-              <View style={styles.taskDetails}>
-                <View style={styles.timeContainer}>
-                  <Ionicons name="time-outline" size={16} color="#666" />
-                  <Text style={styles.timeText}>{task.time}</Text>
-                </View>
-                <View style={styles.assigneeContainer}>
-                  <Text style={styles.assigneeLabel}>Assigned to</Text>
-                  <Text style={styles.assigneeName}>{task.assignedTo}</Text>
+              <View style={styles.taskContent}>
+                <Text style={styles.taskTitle}>{task.title}</Text>
+                <View style={styles.taskDetails}>
+                  <View style={styles.timeContainer}>
+                    <Ionicons name="time-outline" size={16} color="#666" />
+                    <Text style={styles.timeText}>{task.time}</Text>
+                  </View>
+                  <View style={styles.assigneeContainer}>
+                    <Text style={styles.assigneeLabel}>Assigned to</Text>
+                    <Text style={styles.assigneeName}>{task.assignedTo}</Text>
+                  </View>
                 </View>
               </View>
-              <TouchableOpacity
-                style={[styles.checkbox, task.completed && styles.checkedBox]}
-              >
-                {task.completed && (
-                  <Ionicons name="checkmark" size={16} color="white" />
-                )}
-              </TouchableOpacity>
+              <Ionicons
+                name={task.completed ? "checkmark-circle" : "ellipse-outline"}
+                size={24}
+                color={task.completed ? "#4CAF50" : "#666"}
+              />
             </TouchableOpacity>
           ))
         ) : (
@@ -231,164 +220,57 @@ const DailyTasksScreen = ({ navigation }) => {
         )}
       </ScrollView>
 
-      <TouchableOpacity
-        style={styles.addButton}
-        onPress={() => navigation.navigate("CreateTask")}
-      >
-        <Text style={styles.addButtonText}>+ New Task</Text>
-      </TouchableOpacity>
-
-      {/* Task Detail Modal */}
+      {/* Loved One Selector Modal */}
       <Modal
-        visible={showTaskDetailModal}
-        animationType="slide"
+        visible={selectorVisible}
         transparent={true}
-        onRequestClose={() => setShowTaskDetailModal(false)}
+        animationType="slide"
+        onRequestClose={() => setSelectorVisible(false)}
       >
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Task Details</Text>
-              <TouchableOpacity onPress={() => setShowTaskDetailModal(false)}>
+              <Text style={styles.modalTitle}>Select Member</Text>
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={() => setSelectorVisible(false)}
+              >
                 <Ionicons name="close" size={24} color="#666" />
               </TouchableOpacity>
             </View>
 
-            {selectedTask && (
-              <View style={styles.taskDetailContent}>
-                <View style={styles.taskDetailRow}>
-                  <Ionicons
-                    name="document-text-outline"
-                    size={24}
-                    color="#4A90E2"
-                  />
-                  <Text style={styles.taskDetailTitle}>
-                    {selectedTask.title}
-                  </Text>
-                </View>
-
-                <View style={styles.taskDetailRow}>
-                  <Ionicons name="time-outline" size={20} color="#666" />
-                  <Text style={styles.taskDetailText}>{selectedTask.time}</Text>
-                </View>
-
-                <View style={styles.taskDetailRow}>
-                  <Ionicons name="person-outline" size={20} color="#666" />
-                  <Text style={styles.taskDetailText}>
-                    Assigned to{" "}
-                    <Text style={styles.taskDetailHighlight}>
-                      {selectedTask.assignedTo}
-                    </Text>
-                  </Text>
-                </View>
-
-                <View style={styles.taskDetailRow}>
-                  <Ionicons name="checkbox-outline" size={20} color="#666" />
-                  <Text style={styles.taskDetailText}>
-                    Status:{" "}
-                    <Text
-                      style={[
-                        styles.taskDetailHighlight,
-                        {
-                          color: selectedTask.completed ? "#34A853" : "#EA4335",
-                        },
-                      ]}
-                    >
-                      {selectedTask.completed ? "Completed" : "Pending"}
-                    </Text>
-                  </Text>
-                </View>
-
-                {selectedTask.note && (
-                  <View style={styles.taskDetailRow}>
-                    <Ionicons
-                      name="document-text-outline"
-                      size={20}
-                      color="#666"
-                    />
-                    <Text style={styles.taskDetailText}>
-                      Note: {selectedTask.note}
-                    </Text>
-                  </View>
+            <ScrollView style={styles.lovedOnesList}>
+              <TouchableOpacity
+                style={styles.lovedOneItem}
+                onPress={() => {
+                  setSelectedLovedOne(null);
+                  setSelectorVisible(false);
+                }}
+              >
+                <Text style={styles.lovedOneName}>View All Members</Text>
+                {!selectedLovedOne && (
+                  <Ionicons name="checkmark" size={24} color="#4A90E2" />
                 )}
+              </TouchableOpacity>
 
-                <View style={styles.taskDetailActions}>
-                  <TouchableOpacity
-                    style={[styles.taskDetailButton, styles.noteButton]}
-                    onPress={handleAddNote}
-                  >
-                    <Ionicons name="create-outline" size={20} color="white" />
-                    <Text style={styles.taskDetailButtonText}>
-                      {selectedTask.note ? "Edit Note" : "Add Note"}
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[
-                      styles.taskDetailButton,
-                      selectedTask.completed
-                        ? styles.uncompleteButton
-                        : styles.completeButton,
-                    ]}
-                    onPress={toggleTaskCompletion}
-                  >
-                    <Ionicons
-                      name={
-                        selectedTask.completed
-                          ? "close-circle-outline"
-                          : "checkmark-circle-outline"
-                      }
-                      size={20}
-                      color="white"
-                    />
-                    <Text style={styles.taskDetailButtonText}>
-                      {selectedTask.completed
-                        ? "Mark Incomplete"
-                        : "Mark Complete"}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )}
+              {lovedOnes?.map((lovedOne) => (
+                <TouchableOpacity
+                  key={lovedOne._id}
+                  style={styles.lovedOneItem}
+                  onPress={() => {
+                    setSelectedLovedOne(lovedOne);
+                    setSelectorVisible(false);
+                  }}
+                >
+                  <Text style={styles.lovedOneName}>{lovedOne.name}</Text>
+                  {selectedLovedOne?._id === lovedOne._id && (
+                    <Ionicons name="checkmark" size={24} color="#4A90E2" />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
           </View>
         </View>
-      </Modal>
-
-      {/* Note Modal */}
-      <Modal
-        visible={showNoteModal}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setShowNoteModal(false)}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          style={styles.modalContainer}
-        >
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Add Note</Text>
-              <TouchableOpacity onPress={() => setShowNoteModal(false)}>
-                <Ionicons name="close" size={24} color="#666" />
-              </TouchableOpacity>
-            </View>
-            <Text style={styles.modalTaskTitle}>{selectedTask?.title}</Text>
-            <TextInput
-              style={styles.noteInput}
-              placeholder="Write your note here..."
-              value={noteText}
-              onChangeText={setNoteText}
-              multiline
-              textAlignVertical="top"
-            />
-            <TouchableOpacity
-              style={styles.saveButton}
-              onPress={handleSaveNote}
-            >
-              <Text style={styles.saveButtonText}>Save Note</Text>
-            </TouchableOpacity>
-          </View>
-        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );
@@ -404,10 +286,14 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     padding: 16,
+    backgroundColor: "white",
+    borderBottomWidth: 1,
+    borderBottomColor: "#E1E1E1",
   },
   headerTitle: {
     fontSize: 20,
     fontWeight: "600",
+    color: "#333",
   },
   progressSection: {
     padding: 16,
@@ -486,34 +372,60 @@ const styles = StyleSheet.create({
   selectedDateText: {
     color: "white",
   },
+  taskIndicator: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "#4A90E2",
+    position: "absolute",
+    bottom: 8,
+  },
+  addButton: {
+    backgroundColor: "#4A90E2",
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  selectorButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "white",
+    margin: 16,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E1E1E1",
+  },
+  selectorText: {
+    flex: 1,
+    fontSize: 16,
+    color: "#333",
+    marginLeft: 8,
+  },
   taskList: {
     flex: 1,
     padding: 16,
   },
   taskItem: {
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: "white",
-    borderRadius: 8,
     padding: 16,
     marginBottom: 12,
-    position: "relative",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E1E1E1",
   },
-  taskHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 12,
+  taskContent: {
+    flex: 1,
   },
   taskTitle: {
     fontSize: 16,
     fontWeight: "500",
-    flex: 1,
-    marginRight: 8,
-  },
-  completedTaskTitle: {
-    color: "#666",
-  },
-  strikethrough: {
-    textDecorationLine: "line-through",
+    color: "#333",
+    marginBottom: 8,
   },
   taskDetails: {
     flexDirection: "row",
@@ -539,48 +451,9 @@ const styles = StyleSheet.create({
   assigneeName: {
     color: "#4A90E2",
   },
-  checkbox: {
-    position: "absolute",
-    right: 16,
-    top: "50%",
-    marginTop: -12,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: "#4A90E2",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  checkedBox: {
-    backgroundColor: "#4A90E2",
-    borderColor: "#4A90E2",
-  },
-  addButton: {
-    margin: 16,
-    backgroundColor: "#4A90E2",
-    padding: 16,
-    borderRadius: 8,
-    alignItems: "center",
-  },
-  addButtonText: {
-    color: "white",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  taskIndicator: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: "#4A90E2",
-    position: "absolute",
-    bottom: 8,
-  },
   noTasksContainer: {
-    flex: 1,
-    justifyContent: "center",
+    padding: 32,
     alignItems: "center",
-    paddingVertical: 32,
   },
   noTasksText: {
     fontSize: 16,
@@ -590,102 +463,44 @@ const styles = StyleSheet.create({
   modalContainer: {
     flex: 1,
     justifyContent: "flex-end",
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    backgroundColor: "rgba(0,0,0,0.5)",
   },
   modalContent: {
     backgroundColor: "white",
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    padding: 20,
-    minHeight: 300,
+    maxHeight: "70%",
   },
   modalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 16,
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E1E1E1",
   },
   modalTitle: {
-    fontSize: 20,
-    fontWeight: "600",
-    color: "#333",
-  },
-  modalTaskTitle: {
-    fontSize: 16,
-    fontWeight: "500",
-    color: "#666",
-    marginBottom: 16,
-  },
-  noteInput: {
-    backgroundColor: "#F5F6FA",
-    borderRadius: 12,
-    padding: 16,
-    height: 150,
-    borderWidth: 1,
-    borderColor: "#E1E1E1",
-    fontSize: 16,
-    marginBottom: 16,
-  },
-  saveButton: {
-    backgroundColor: "#4A90E2",
-    padding: 16,
-    borderRadius: 12,
-    alignItems: "center",
-  },
-  saveButtonText: {
-    color: "white",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  taskDetailContent: {
-    gap: 16,
-  },
-  taskDetailRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  taskDetailTitle: {
     fontSize: 18,
     fontWeight: "600",
     color: "#333",
-    flex: 1,
   },
-  taskDetailText: {
-    fontSize: 16,
-    color: "#666",
-    flex: 1,
+  closeButton: {
+    padding: 4,
   },
-  taskDetailHighlight: {
-    color: "#4A90E2",
-    fontWeight: "500",
+  lovedOnesList: {
+    padding: 16,
   },
-  taskDetailActions: {
-    flexDirection: "column",
-    gap: 12,
-    marginTop: 24,
-  },
-  taskDetailButton: {
+  lovedOneItem: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    padding: 16,
-    borderRadius: 12,
-    gap: 8,
+    justifyContent: "space-between",
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F0F0F0",
   },
-  noteButton: {
-    backgroundColor: "#4A90E2",
-  },
-  completeButton: {
-    backgroundColor: "#34A853",
-  },
-  uncompleteButton: {
-    backgroundColor: "#EA4335",
-  },
-  taskDetailButtonText: {
-    color: "white",
+  lovedOneName: {
     fontSize: 16,
-    fontWeight: "600",
+    color: "#333",
   },
 });
 
