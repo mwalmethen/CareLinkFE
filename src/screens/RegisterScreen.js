@@ -11,18 +11,18 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
+
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import * as ImagePicker from "expo-image-picker";
+import { register } from "../api/auth";
+import { useUser } from "../api/UserContext"; // Import UserContext
 
 const RegisterScreen = ({ navigation }) => {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
-  const [countryCode, setCountryCode] = useState("+965");
-  const [profileImage, setProfileImage] = useState(null);
+  const { saveUser } = useUser(); // Access UserContext to save user data
 
   useEffect(() => {
     const backAction = () => {
@@ -37,6 +37,96 @@ const RegisterScreen = ({ navigation }) => {
 
     return () => backHandler.remove();
   }, [navigation]);
+
+  const handleRegister = async () => {
+    const trimmedName = name.trim();
+    const trimmedEmail = email.trim();
+    const trimmedPassword = password.trim();
+    const trimmedPhoneNumber = phoneNumber.trim();
+
+    // Debug logs
+    console.log("Name:", trimmedName);
+    console.log("Email:", trimmedEmail);
+    console.log("Password:", trimmedPassword);
+    console.log("Phone Number:", trimmedPhoneNumber);
+
+    // Validation
+    if (!trimmedName) {
+      alert("Full Name is required.");
+      return;
+    }
+    if (!trimmedEmail) {
+      alert("Email Address is required.");
+      return;
+    }
+    if (!trimmedPassword) {
+      alert("Password is required.");
+      return;
+    }
+    if (!trimmedPhoneNumber) {
+      alert("Phone Number is required.");
+      return;
+    }
+
+    // Email and phone validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; // Simple email regex
+    const phoneRegex = /^[0-9]{8,15}$/; // Digits only, 8-15 characters
+
+    if (!emailRegex.test(trimmedEmail)) {
+      alert("Please enter a valid email address.");
+      return;
+    }
+    if (!phoneRegex.test(trimmedPhoneNumber)) {
+      alert("Please enter a valid phone number.");
+      return;
+    }
+
+    try {
+      const requestBody = {
+        name: trimmedName,
+        email: trimmedEmail,
+        password: trimmedPassword,
+        phone_number: trimmedPhoneNumber,
+      };
+
+      console.log("Request Body:", requestBody);
+
+      const response = await register(
+        requestBody.name,
+        requestBody.email,
+        requestBody.password,
+        requestBody.phone_number
+      );
+
+      console.log("API Response:", response);
+
+      //   if (response.token) {
+      //     alert("Registration successful!");
+      //     navigation.navigate("HomeTabs");
+      //   }
+      if (response.token && response.user) {
+        // Save user and token in context and AsyncStorage
+        await saveUser(response.user, response.token);
+
+        Alert.alert("Success", "Registration successful!", [
+          {
+            text: "OK",
+            onPress: () => navigation.navigate("HomeTabs"),
+          },
+        ]);
+      } else if (
+        response.message &&
+        response.message.includes("already registered")
+      ) {
+        alert("User is already registered. Please login.");
+      } else {
+        alert(response.message || "Registration failed. Please try again.");
+      }
+    } catch (error) {
+      console.error("API Error:", error);
+      alert("An error occurred during registration. Please try again.");
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -119,50 +209,24 @@ const RegisterScreen = ({ navigation }) => {
 
               <View style={styles.inputWrapper}>
                 <Ionicons
-                  name="lock-closed-outline"
+                  name="call-outline"
                   size={20}
                   color="#666"
                   style={styles.inputIcon}
                 />
                 <TextInput
                   style={styles.input}
-                  placeholder="Confirm Password"
-                  value={confirmPassword}
-                  onChangeText={setConfirmPassword}
-                  secureTextEntry
+                  placeholder="Phone Number"
+                  value={phoneNumber}
+                  onChangeText={setPhoneNumber}
+                  keyboardType="phone-pad"
                 />
-              </View>
-
-              <View style={styles.phoneWrapper}>
-                <View style={[styles.inputWrapper, styles.countryCode]}>
-                  <TextInput
-                    style={styles.input}
-                    value={countryCode}
-                    onChangeText={setCountryCode}
-                    keyboardType="phone-pad"
-                  />
-                </View>
-                <View style={[styles.inputWrapper, styles.phoneNumber]}>
-                  <Ionicons
-                    name="call-outline"
-                    size={20}
-                    color="#666"
-                    style={styles.inputIcon}
-                  />
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Phone Number"
-                    value={phoneNumber}
-                    onChangeText={setPhoneNumber}
-                    keyboardType="phone-pad"
-                  />
-                </View>
               </View>
             </View>
 
             <TouchableOpacity
               style={styles.registerButton}
-              onPress={() => navigation.navigate("HomeTabs")}
+              onPress={handleRegister}
             >
               <Text style={styles.registerButtonText}>Create Account</Text>
             </TouchableOpacity>
@@ -237,46 +301,6 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 8,
     fontSize: 16,
-  },
-  phoneWrapper: {
-    flexDirection: "row",
-    gap: 8,
-  },
-  countryCode: {
-    flex: 2,
-  },
-  phoneNumber: {
-    flex: 5,
-  },
-  optionalText: {
-    fontSize: 16,
-    color: "#666",
-    marginTop: 16,
-  },
-  imagePickerContainer: {
-    width: 100,
-    height: 100,
-    backgroundColor: "#F5F6FA",
-    borderRadius: 50,
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#E1E1E1",
-    alignSelf: "center",
-  },
-  placeholderContainer: {
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  placeholderText: {
-    color: "#4A90E2",
-    fontSize: 16,
-    marginTop: 8,
-  },
-  previewImage: {
-    width: "100%",
-    height: "100%",
-    resizeMode: "cover",
   },
   registerButton: {
     backgroundColor: "#4A90E2",

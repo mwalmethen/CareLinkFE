@@ -1,22 +1,51 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   TextInput,
-  BackHandler,
+  Alert,
   Image,
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { login } from "../api/auth"; // Ensure the import path is correct
+import { useUser } from "../api/UserContext";
 
 const LoginScreen = ({ navigation }) => {
+  const { saveUser } = useUser(); // Use context for saving user data
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+
+  const handleLogin = async () => {
+    if (!email || !password) {
+      Alert.alert("Error", "Please fill in all fields.");
+      return;
+    }
+
+    try {
+      const response = await login(email, password); // Call API
+      if (response.token && response.user) {
+        // Save user and token to context and AsyncStorage
+        await saveUser(response.user, response.token);
+        Alert.alert("Success", "Login successful!", [
+          {
+            text: "OK",
+            onPress: () => navigation.navigate("HomeTabs"), // Navigate to HomeTabs
+          },
+        ]);
+      } else {
+        Alert.alert("Error", response.message || "Login failed.");
+      }
+    } catch (error) {
+      console.error(error);
+      Alert.alert("Error", "An error occurred during login.");
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -88,10 +117,7 @@ const LoginScreen = ({ navigation }) => {
             </TouchableOpacity>
           </View>
 
-          <TouchableOpacity
-            style={styles.loginButton}
-            onPress={() => navigation.navigate("HomeTabs")}
-          >
+          <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
             <Text style={styles.loginButtonText}>Sign In</Text>
           </TouchableOpacity>
 
