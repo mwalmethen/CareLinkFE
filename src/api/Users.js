@@ -1,4 +1,5 @@
 import instance from "./index";
+import axios from "axios";
 
 // get all loved ones
 const getAllLovedOnes = async () => {
@@ -29,6 +30,26 @@ const addLovedOne = async (lovedOne, token) => {
     }
   );
   return response;
+};
+
+export const deleteLovedOne = async (lovedOneId, token) => {
+  try {
+    const response = await axios.delete(
+      `https://seal-app-doaaw.ondigitalocean.app/api/caregivers/loved-one/${lovedOneId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error(
+      "Error deleting loved one:",
+      error.response?.data || error.message
+    );
+    throw error;
+  }
 };
 
 export { getAllLovedOnes, addLovedOne };

@@ -34,6 +34,8 @@ function MainTabs() {
             iconName = focused ? "document-text" : "document-text-outline";
           } else if (route.name === "HealthMonitoring") {
             iconName = focused ? "pulse" : "pulse-outline";
+          } else if (route.name === "Profile") {
+            iconName = focused ? "person" : "person-outline";
           }
 
           return <Ionicons name={iconName} size={size} color={color} />;
