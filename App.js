@@ -99,16 +99,14 @@ export default function App() {
               <Stack.Screen name="HomeTabs" component={MainTabs} />
               <Stack.Screen name="CreateTask" component={CreateTaskScreen} />
               <Stack.Screen
-<<<<<<< HEAD
                 name="EmergencyButton"
                 component={EmergencyButton}
               />
-=======
+              <Stack.Screen
                 name="LovedOneDetails"
                 component={LovedOneDetailsScreen}
               />
               <Stack.Screen name="TaskDetails" component={TaskDetailsScreen} />
->>>>>>> origin/mohammed
             </Stack.Navigator>
           </NavigationContainer>
         </SafeAreaProvider>

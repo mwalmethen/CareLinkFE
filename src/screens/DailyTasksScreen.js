@@ -220,7 +220,6 @@ const DailyTasksScreen = ({ navigation }) => {
         )}
       </ScrollView>
 
-<<<<<<< HEAD
       <TouchableOpacity
         style={styles.addButton}
         onPress={() => navigation.navigate("CreateTask")}
@@ -235,9 +234,7 @@ const DailyTasksScreen = ({ navigation }) => {
       </TouchableOpacity>
 
       {/* Task Detail Modal */}
-=======
       {/* Loved One Selector Modal */}
->>>>>>> origin/mohammed
       <Modal
         visible={selectorVisible}
         transparent={true}
