@@ -35,7 +35,7 @@ const LoginScreen = ({ navigation }) => {
         Alert.alert("Success", "Login successful!", [
           {
             text: "OK",
-            onPress: () => navigation.navigate("HomeTabs"), // Navigate to HomeTabs
+            onPress: () => navigation.navigate("HomeTabs"), // Navigate to
           },
         ]);
       } else {
@@ -75,12 +75,13 @@ const LoginScreen = ({ navigation }) => {
               <Ionicons
                 name="mail-outline"
                 size={20}
-                color="#666"
+                color="#4A90E2"
                 style={styles.inputIcon}
               />
               <TextInput
                 style={styles.input}
                 placeholder="Email Address"
+                placeholderTextColor="#4A90E2"
                 value={email}
                 onChangeText={setEmail}
                 keyboardType="email-address"
@@ -93,12 +94,13 @@ const LoginScreen = ({ navigation }) => {
               <Ionicons
                 name="lock-closed-outline"
                 size={20}
-                color="#666"
+                color="#4A90E2"
                 style={styles.inputIcon}
               />
               <TextInput
                 style={[styles.input, { flex: 1 }]}
                 placeholder="Password"
+                placeholderTextColor="#4A90E2"
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry={!showPassword}
@@ -107,7 +109,7 @@ const LoginScreen = ({ navigation }) => {
                 <Ionicons
                   name={showPassword ? "eye-off-outline" : "eye-outline"}
                   size={20}
-                  color="#666"
+                  color="#4A90E2"
                 />
               </TouchableOpacity>
             </View>

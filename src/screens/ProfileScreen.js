@@ -3,38 +3,37 @@ import {
   View,
   Text,
   StyleSheet,
-  Image,
   TouchableOpacity,
   ScrollView,
-  TextInput,
+  Image,
   Modal,
+  TextInput,
   Alert,
   ActivityIndicator,
 } from "react-native";
-import Icon from "react-native-vector-icons/MaterialIcons";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
 import { useUser } from "../api/UserContext";
-import { getAllLovedOnes, addLovedOne } from "../api/Users";
+import { getAllLovedOnes, addLovedOne, deleteLovedOne } from "../api/Users";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
-const ProfileScreen = () => {
+const ProfileScreen = ({ navigation }) => {
   const [modalVisible, setModalVisible] = useState(false);
-  const [loading, setLoading] = useState(false); // Loading indicator for API call
+  const [loading, setLoading] = useState(false);
   const [newLovedOne, setNewLovedOne] = useState({
     name: "",
     age: "",
     medical_history: "",
   });
-  const { user, token } = useUser(); // Access user data
+  const { user, token, logout } = useUser();
   const queryClient = useQueryClient();
 
-  // Fetch loved ones using React Query
   const { data, isLoading, error } = useQuery({
     queryKey: ["lovedOnes"],
     queryFn: getAllLovedOnes,
     enabled: true,
   });
 
-  // Function to handle adding a loved one through API
   const handleAddLovedOne = async () => {
     if (!newLovedOne.name || !newLovedOne.age || !newLovedOne.medical_history) {
       Alert.alert("Error", "All fields are required.");
@@ -43,8 +42,8 @@ const ProfileScreen = () => {
 
     try {
       setLoading(true);
-      await addLovedOne(newLovedOne, token); // Add new loved one
-      queryClient.invalidateQueries(["lovedOnes"]); // Refetch data
+      await addLovedOne(newLovedOne, token);
+      queryClient.invalidateQueries(["lovedOnes"]);
       Alert.alert("Success", "Loved one added successfully!");
       setModalVisible(false);
       setNewLovedOne({ name: "", age: "", medical_history: "" });
@@ -58,383 +57,343 @@ const ProfileScreen = () => {
     }
   };
 
+  const handleDeleteLovedOne = async (lovedOneId) => {
+    try {
+      Alert.alert(
+        "Delete Loved One",
+        "Are you sure you want to delete this loved one?",
+        [
+          {
+            text: "Cancel",
+            style: "cancel",
+          },
+          {
+            text: "Delete",
+            style: "destructive",
+            onPress: async () => {
+              try {
+                await deleteLovedOne(lovedOneId, token);
+                queryClient.invalidateQueries(["lovedOnes"]);
+                Alert.alert("Success", "Loved one deleted successfully");
+              } catch (error) {
+                Alert.alert(
+                  "Error",
+                  error.response?.data?.message || "Failed to delete loved one"
+                );
+              }
+            },
+          },
+        ]
+      );
+    } catch (error) {
+      Alert.alert(
+        "Error",
+        error.response?.data?.message || "Failed to delete loved one"
+      );
+    }
+  };
+
+  const handleLogout = async () => {
+    await logout();
+    navigation.reset({
+      index: 0,
+      routes: [{ name: "Main" }],
+    });
+  };
+
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.profileImageContainer}>
-          <Image
-            source={{
-              uri: "https://ui-avatars.com/api/?name=User&background=4a90e2&color=fff&size=120",
-            }}
-            style={styles.profileImage}
-          />
-          <TouchableOpacity style={styles.editImageButton}>
-            <Icon name="edit" size={20} color="#fff" />
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      <View style={styles.infoSection}>
-        <View style={styles.infoItem}>
-          <Icon name="person" size={24} color="#666" />
-          <Text style={styles.infoLabel}>name: {user.name}</Text>
+    <SafeAreaView style={styles.container}>
+      <ScrollView style={styles.scrollView}>
+        <View style={styles.header}>
+          <View style={styles.profileImageContainer}>
+            <View style={styles.profileImage}>
+              <Ionicons name="person" size={40} color="#4A90E2" />
+            </View>
+            <TouchableOpacity style={styles.editButton}>
+              <Ionicons name="camera-outline" size={20} color="#4A90E2" />
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.userName}>{user?.name || "User Name"}</Text>
+          <Text style={styles.userEmail}>
+            {user?.email || "email@example.com"}
+          </Text>
         </View>
 
-        <View style={styles.infoItem}>
-          <Icon name="email" size={24} color="#666" />
-          <Text style={styles.infoLabel}>email: {user.email}</Text>
-        </View>
-      </View>
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Loved Ones</Text>
+            <TouchableOpacity
+              style={styles.addButton}
+              onPress={() => setModalVisible(true)}
+            >
+              <Ionicons name="add" size={24} color="white" />
+            </TouchableOpacity>
+          </View>
 
-      <View style={styles.lovedOnesSection}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Loved Ones</Text>
-          <TouchableOpacity
-            style={styles.addButton}
-            onPress={() => setModalVisible(true)}
-          >
-            <Icon name="add" size={24} color="#fff" />
-          </TouchableOpacity>
-        </View>
-
-        {isLoading && <ActivityIndicator size="large" />}
-        {error && (
-          <Text style={{ color: "red" }}>Failed to load loved ones.</Text>
-        )}
-        {!isLoading && !error && data?.length > 0
-          ? data.map((lovedOne) => (
-              <View key={lovedOne._id} style={styles.lovedOneItem}>
-                <Icon name="favorite" size={24} color="#ff6b6b" />
-                <View>
-                  <Text style={styles.lovedOneName}>{lovedOne.name}</Text>
-                  <Text style={styles.lovedOneRelation}>
-                    Age: {lovedOne.age}
-                  </Text>
-                  <Text style={styles.lovedOneRelation}>
-                    Medical History: {lovedOne.medical_history}
-                  </Text>
+          {isLoading && <ActivityIndicator size="large" color="#4A90E2" />}
+          {error && (
+            <Text style={styles.errorText}>Failed to load loved ones.</Text>
+          )}
+          {!isLoading && !error && data?.length > 0
+            ? data.map((lovedOne) => (
+                <View key={lovedOne._id} style={styles.lovedOneItem}>
+                  <TouchableOpacity
+                    style={styles.lovedOneContent}
+                    onPress={() =>
+                      navigation.navigate("LovedOneDetails", { lovedOne })
+                    }
+                  >
+                    <Ionicons name="heart" size={24} color="#4A90E2" />
+                    <View style={styles.lovedOneInfo}>
+                      <Text style={styles.lovedOneName}>{lovedOne.name}</Text>
+                      <Text style={styles.lovedOneDetails}>
+                        Age: {lovedOne.age}
+                      </Text>
+                      <Text style={styles.lovedOneDetails}>
+                        Medical History: {lovedOne.medical_history}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.deleteButton}
+                    onPress={() => handleDeleteLovedOne(lovedOne._id)}
+                  >
+                    <Ionicons name="trash-outline" size={20} color="#EA4335" />
+                  </TouchableOpacity>
                 </View>
-              </View>
-            ))
-          : !isLoading && <Text>No loved ones added yet.</Text>}
-      </View>
+              ))
+            : !isLoading && (
+                <Text style={styles.noDataText}>No loved ones added yet.</Text>
+              )}
+        </View>
 
-      {/* Modal for Adding Loved One */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={modalVisible}
-        onRequestClose={() => setModalVisible(false)}
-      >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Add Loved One</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Name"
-              value={newLovedOne.name}
-              onChangeText={(text) =>
-                setNewLovedOne({ ...newLovedOne, name: text })
-              }
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="Age"
-              keyboardType="numeric"
-              value={newLovedOne.age}
-              onChangeText={(text) =>
-                setNewLovedOne({ ...newLovedOne, age: text })
-              }
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="Medical History"
-              value={newLovedOne.medical_history}
-              onChangeText={(text) =>
-                setNewLovedOne({ ...newLovedOne, medical_history: text })
-              }
-            />
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.addButtonModal]}
-                onPress={handleAddLovedOne}
-                disabled={loading} // Disable when loading
-              >
-                {loading ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={styles.buttonText}>Add</Text>
-                )}
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton]}
-                onPress={() => setModalVisible(false)}
-              >
-                <Text style={styles.buttonText}>Cancel</Text>
-              </TouchableOpacity>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Account Settings</Text>
+          <TouchableOpacity style={styles.menuItem}>
+            <Ionicons name="person-outline" size={24} color="#4A90E2" />
+            <Text style={styles.menuText}>Edit Profile</Text>
+            <Ionicons name="chevron-forward" size={24} color="#666" />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.menuItem}>
+            <Ionicons name="notifications-outline" size={24} color="#4A90E2" />
+            <Text style={styles.menuText}>Notifications</Text>
+            <Ionicons name="chevron-forward" size={24} color="#666" />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.menuItem}>
+            <Ionicons name="lock-closed-outline" size={24} color="#4A90E2" />
+            <Text style={styles.menuText}>Privacy & Security</Text>
+            <Ionicons name="chevron-forward" size={24} color="#666" />
+          </TouchableOpacity>
+        </View>
+
+        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+          <Ionicons name="log-out-outline" size={24} color="white" />
+          <Text style={styles.logoutText}>Log Out</Text>
+        </TouchableOpacity>
+
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={modalVisible}
+          onRequestClose={() => setModalVisible(false)}
+        >
+          <View style={styles.modalContainer}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Add Loved One</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Name"
+                placeholderTextColor="#4A90E2"
+                value={newLovedOne.name}
+                onChangeText={(text) =>
+                  setNewLovedOne({ ...newLovedOne, name: text })
+                }
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="Age"
+                placeholderTextColor="#4A90E2"
+                keyboardType="numeric"
+                value={newLovedOne.age}
+                onChangeText={(text) =>
+                  setNewLovedOne({ ...newLovedOne, age: text })
+                }
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="Medical History"
+                placeholderTextColor="#4A90E2"
+                value={newLovedOne.medical_history}
+                onChangeText={(text) =>
+                  setNewLovedOne({ ...newLovedOne, medical_history: text })
+                }
+                multiline
+              />
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.addButtonModal]}
+                  onPress={handleAddLovedOne}
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <ActivityIndicator color="white" />
+                  ) : (
+                    <Text style={styles.buttonText}>Add</Text>
+                  )}
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.cancelButton]}
+                  onPress={() => setModalVisible(false)}
+                >
+                  <Text style={styles.buttonText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
-        </View>
-      </Modal>
-    </ScrollView>
+        </Modal>
+      </ScrollView>
+    </SafeAreaView>
   );
 };
-
-// import React, { useState } from "react";
-// import {
-//   View,
-//   Text,
-//   StyleSheet,
-//   Image,
-//   TouchableOpacity,
-//   ScrollView,
-//   TextInput,
-//   Modal,
-//   Alert,
-//   ActivityIndicator,
-// } from "react-native";
-// import Icon from "react-native-vector-icons/MaterialIcons";
-// import { useUser } from "../api/UserContext";
-// import { getAllLovedOnes, addLovedOne } from "../api/Users";
-// import { useQuery } from "@tanstack/react-query";
-
-// const ProfileScreen = () => {
-//   const [lovedOnes, setLovedOnes] = useState([]);
-//   const [modalVisible, setModalVisible] = useState(false);
-//   const [loading, setLoading] = useState(false); // Loading indicator for API call
-//   const [newLovedOne, setNewLovedOne] = useState({
-//     name: "",
-//     age: "",
-//     medical_history: "",
-//   });
-//   const { data, isLoading, error } = useQuery({
-//     queryKey: ["lovedOnes"],
-//     queryFn: getAllLovedOnes,
-//     enabled: true,
-//   });
-//   const { user, token } = useUser(); // Access user data
-
-//   // Function to handle adding a loved one through API
-//   const handleAddLovedOne = async () => {
-//     if (!newLovedOne.name || !newLovedOne.age || !newLovedOne.medical_history) {
-//       Alert.alert("Error", "All fields are required.");
-//       return;
-//     }
-
-//     try {
-//       setLoading(true);
-//       const response = await addLovedOne(newLovedOne, token); // Pass token
-//       setLovedOnes([...lovedOnes, response.data]); // Update state
-//       Alert.alert("Success", "Loved one added successfully!");
-//       setModalVisible(false);
-//       setNewLovedOne({ name: "", age: "", medical_history: "" });
-//     } catch (error) {
-//       Alert.alert(
-//         "Error",
-//         error.response?.data?.message || "Failed to add loved one."
-//       );
-//     } finally {
-//       setLoading(false);
-//     }
-//   };
-
-//   return (
-//     <ScrollView style={styles.container}>
-//       <View style={styles.header}>
-//         <View style={styles.profileImageContainer}>
-//           <Image
-//             source={{
-//               uri: "https://ui-avatars.com/api/?name=User&background=4a90e2&color=fff&size=120",
-//             }}
-//             style={styles.profileImage}
-//           />
-//           <TouchableOpacity style={styles.editImageButton}>
-//             <Icon name="edit" size={20} color="#fff" />
-//           </TouchableOpacity>
-//         </View>
-//       </View>
-
-//       <View style={styles.infoSection}>
-//         <View style={styles.infoItem}>
-//           <Icon name="person" size={24} color="#666" />
-//           <Text style={styles.infoLabel}>name: {user.name}</Text>
-//         </View>
-
-//         <View style={styles.infoItem}>
-//           <Icon name="email" size={24} color="#666" />
-//           <Text style={styles.infoLabel}>email: {user.email}</Text>
-//         </View>
-//       </View>
-
-//       <View style={styles.lovedOnesSection}>
-//         <View style={styles.sectionHeader}>
-//           <Text style={styles.sectionTitle}>Loved Ones</Text>
-//           <TouchableOpacity
-//             style={styles.addButton}
-//             onPress={() => setModalVisible(true)}
-//           >
-//             <Icon name="add" size={24} color="#fff" />
-//           </TouchableOpacity>
-//         </View>
-//         {data?.map((lovedOne) => (
-//           <View key={lovedOne.id}>
-//             <Text>{lovedOne.name}</Text>
-//             <Text>{lovedOne.age}</Text>
-//             <Text>{lovedOne.medical_history}</Text>
-//           </View>
-//         ))}
-//       </View>
-
-//       {/* Modal for Adding Loved One */}
-//       <Modal
-//         animationType="slide"
-//         transparent={true}
-//         visible={modalVisible}
-//         onRequestClose={() => setModalVisible(false)}
-//       >
-//         <View style={styles.modalContainer}>
-//           <View style={styles.modalContent}>
-//             <Text style={styles.modalTitle}>Add Loved One</Text>
-//             <TextInput
-//               style={styles.input}
-//               placeholder="Name"
-//               value={newLovedOne.name}
-//               onChangeText={(text) =>
-//                 setNewLovedOne({ ...newLovedOne, name: text })
-//               }
-//             />
-//             <TextInput
-//               style={styles.input}
-//               placeholder="Age"
-//               keyboardType="numeric"
-//               value={newLovedOne.age}
-//               onChangeText={(text) =>
-//                 setNewLovedOne({ ...newLovedOne, age: text })
-//               }
-//             />
-//             <TextInput
-//               style={styles.input}
-//               placeholder="Medical History"
-//               value={newLovedOne.medical_history}
-//               onChangeText={(text) =>
-//                 setNewLovedOne({ ...newLovedOne, medical_history: text })
-//               }
-//             />
-//             <View style={styles.modalButtons}>
-//               <TouchableOpacity
-//                 style={[styles.modalButton, styles.addButtonModal]}
-//                 onPress={handleAddLovedOne}
-//                 disabled={loading} // Disable when loading
-//               >
-//                 {loading ? (
-//                   <ActivityIndicator color="#fff" />
-//                 ) : (
-//                   <Text style={styles.buttonText}>Add</Text>
-//                 )}
-//               </TouchableOpacity>
-//               <TouchableOpacity
-//                 style={[styles.modalButton, styles.cancelButton]}
-//                 onPress={() => setModalVisible(false)}
-//               >
-//                 <Text style={styles.buttonText}>Cancel</Text>
-//               </TouchableOpacity>
-//             </View>
-//           </View>
-//         </View>
-//       </Modal>
-//     </ScrollView>
-//   );
-// };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
+    backgroundColor: "#F5F6FA",
+  },
+  scrollView: {
+    flex: 1,
   },
   header: {
     alignItems: "center",
     padding: 20,
+    backgroundColor: "white",
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   profileImageContainer: {
     position: "relative",
+    marginBottom: 16,
   },
   profileImage: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: "#F5F6FA",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: "#4A90E2",
   },
-  editImageButton: {
+  editButton: {
     position: "absolute",
     right: 0,
     bottom: 0,
-    backgroundColor: "#4a90e2",
-    padding: 8,
-    borderRadius: 20,
-  },
-  infoSection: {
-    backgroundColor: "#fff",
-    padding: 15,
-    marginHorizontal: 15,
-    borderRadius: 10,
-    marginBottom: 20,
-  },
-  infoItem: {
-    flexDirection: "row",
+    backgroundColor: "white",
+    borderRadius: 15,
+    width: 30,
+    height: 30,
+    justifyContent: "center",
     alignItems: "center",
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: "#eee",
+    borderWidth: 1,
+    borderColor: "#4A90E2",
   },
-  infoLabel: {
-    marginLeft: 10,
+  userName: {
+    fontSize: 24,
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 4,
+  },
+  userEmail: {
     fontSize: 16,
     color: "#666",
-    flex: 1,
   },
-  infoValue: {
-    fontSize: 16,
-    color: "#333",
-    textAlign: "right",
-    flex: 2,
-  },
-  lovedOnesSection: {
-    backgroundColor: "#fff",
-    padding: 15,
-    marginHorizontal: 15,
-    borderRadius: 10,
+  section: {
+    backgroundColor: "white",
+    marginTop: 20,
+    padding: 16,
+    borderRadius: 16,
+    marginHorizontal: 16,
   },
   sectionHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 15,
+    marginBottom: 16,
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: "bold",
+    fontWeight: "600",
     color: "#333",
   },
   addButton: {
-    backgroundColor: "#4a90e2",
-    padding: 8,
-    borderRadius: 20,
+    backgroundColor: "#4A90E2",
+    borderRadius: 12,
+    width: 40,
+    height: 40,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  menuItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F0F0F0",
+  },
+  menuText: {
+    flex: 1,
+    fontSize: 16,
+    color: "#333",
+    marginLeft: 12,
   },
   lovedOneItem: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 10,
+    justifyContent: "space-between",
+    paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "#eee",
+    borderBottomColor: "#F0F0F0",
+  },
+  lovedOneContent: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    flex: 1,
+  },
+  lovedOneInfo: {
+    marginLeft: 12,
+    flex: 1,
   },
   lovedOneName: {
     fontSize: 16,
+    fontWeight: "600",
     color: "#333",
-    marginLeft: 10,
+    marginBottom: 4,
   },
-  lovedOneRelation: {
+  lovedOneDetails: {
     fontSize: 14,
     color: "#666",
-    marginLeft: 10,
+    marginBottom: 2,
+  },
+  errorText: {
+    color: "#EA4335",
+    textAlign: "center",
+    marginVertical: 12,
+  },
+  noDataText: {
+    color: "#666",
+    textAlign: "center",
+    marginVertical: 12,
   },
   modalContainer: {
     flex: 1,
@@ -443,314 +402,70 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.5)",
   },
   modalContent: {
-    backgroundColor: "#fff",
+    backgroundColor: "white",
+    borderRadius: 16,
     padding: 20,
-    borderRadius: 10,
-    width: "80%",
+    width: "90%",
+    maxWidth: 400,
   },
   modalTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 15,
+    fontSize: 20,
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 20,
     textAlign: "center",
   },
   input: {
     borderWidth: 1,
-    borderColor: "#ddd",
-    padding: 10,
-    borderRadius: 5,
-    marginBottom: 10,
+    borderColor: "#E1E1E1",
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+    fontSize: 16,
+    color: "#333",
   },
   modalButtons: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: 15,
+    gap: 12,
   },
   modalButton: {
-    padding: 10,
-    borderRadius: 5,
     flex: 1,
-    marginHorizontal: 5,
+    padding: 12,
+    borderRadius: 8,
+    alignItems: "center",
   },
   addButtonModal: {
-    backgroundColor: "#4a90e2",
+    backgroundColor: "#4A90E2",
   },
   cancelButton: {
-    backgroundColor: "#ff6b6b",
+    backgroundColor: "#EA4335",
   },
   buttonText: {
-    color: "#fff",
-    textAlign: "center",
+    color: "white",
     fontSize: 16,
+    fontWeight: "600",
+  },
+  logoutButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#EA4335",
+    marginHorizontal: 16,
+    marginVertical: 24,
+    padding: 16,
+    borderRadius: 12,
+    gap: 8,
+  },
+  logoutText: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  deleteButton: {
+    padding: 8,
+    marginLeft: 12,
   },
 });
+
 export default ProfileScreen;
-
-// import React, { useState } from "react";
-// import {
-//   View,
-//   Text,
-//   StyleSheet,
-//   Image,
-//   TouchableOpacity,
-//   ScrollView,
-//   TextInput,
-//   Modal,
-// } from "react-native";
-// import Icon from "react-native-vector-icons/MaterialIcons";
-// import { useUser } from "../api/UserContext";
-// import { getAllLovedOnes, addLovedOne } from "../api/Users";
-
-// const ProfileScreen = () => {
-//   const [lovedOnes, setLovedOnes] = useState([]);
-//   const [modalVisible, setModalVisible] = useState(false);
-//   const [newLovedOne, setNewLovedOne] = useState({
-//     name: "",
-//     relation: "",
-//   });
-//   const { user } = useUser(); // Access user and logout
-
-//   const addLovedOne = () => {
-//     if (newLovedOne.name && newLovedOne.relation) {
-//       setLovedOnes([...lovedOnes, newLovedOne]);
-//       setNewLovedOne({ name: "", relation: "" });
-//       setModalVisible(false);
-//     }
-//   };
-
-//   return (
-//     <ScrollView style={styles.container}>
-//       <View style={styles.header}>
-//         <View style={styles.profileImageContainer}>
-//           <Image
-//             source={{
-//               uri: "https://ui-avatars.com/api/?name=User&background=4a90e2&color=fff&size=120",
-//             }}
-//             style={styles.profileImage}
-//           />
-//           <TouchableOpacity style={styles.editImageButton}>
-//             <Icon name="edit" size={20} color="#fff" />
-//           </TouchableOpacity>
-//         </View>
-//       </View>
-
-//       <View style={styles.infoSection}>
-//         <View style={styles.infoItem}>
-//           <Icon name="person" size={24} color="#666" />
-//           <Text style={styles.infoLabel}>name: {user.name}</Text>
-//         </View>
-
-//         <View style={styles.infoItem}>
-//           <Icon name="email" size={24} color="#666" />
-//           <Text style={styles.infoLabel}>email: {user.email}</Text>
-//         </View>
-//       </View>
-
-//       <View style={styles.lovedOnesSection}>
-//         <View style={styles.sectionHeader}>
-//           <TextInput style={styles.sectionTitle}>loved ones</TextInput>
-//           <TouchableOpacity
-//             style={styles.addButton}
-//             onPress={() => setModalVisible(true)}
-//           >
-//             <Icon name="add" size={24} color="#fff" />
-//           </TouchableOpacity>
-//         </View>
-
-//         {lovedOnes.map((person, index) => (
-//           <View key={index} style={styles.lovedOneItem}>
-//             <Icon name="favorite" size={24} color="#ff6b6b" />
-//             <View>
-//               <Text style={styles.lovedOneName}>{person.name}</Text>
-//               <Text style={styles.lovedOneRelation}>{person.relation}</Text>
-//             </View>
-//           </View>
-//         ))}
-//       </View>
-
-//       <Modal
-//         animationType="slide"
-//         transparent={true}
-//         visible={modalVisible}
-//         onRequestClose={() => setModalVisible(false)}
-//       >
-//         <View style={styles.modalContainer}>
-//           <View style={styles.modalContent}>
-//             <Text style={styles.modalTitle}>add loved one</Text>
-//             <TextInput
-//               style={styles.input}
-//               placeholder="name"
-//               value={newLovedOne.name}
-//               onChangeText={(text) =>
-//                 setNewLovedOne({ ...newLovedOne, name: text })
-//               }
-//             />
-//             <TextInput
-//               style={styles.input}
-//               placeholder="relation"
-//               value={newLovedOne.relation}
-//               onChangeText={(text) =>
-//                 setNewLovedOne({ ...newLovedOne, relation: text })
-//               }
-//             />
-//             <View style={styles.modalButtons}>
-//               <TouchableOpacity
-//                 style={[styles.modalButton, styles.addButtonModal]}
-//                 onPress={addLovedOne}
-//               >
-//                 <Text style={styles.buttonText}>add</Text>
-//               </TouchableOpacity>
-//               <TouchableOpacity
-//                 style={[styles.modalButton, styles.cancelButton]}
-//                 onPress={() => setModalVisible(false)}
-//               >
-//                 <Text style={styles.buttonText}>cancel</Text>
-//               </TouchableOpacity>
-//             </View>
-//           </View>
-//         </View>
-//       </Modal>
-//     </ScrollView>
-//   );
-// };
-
-// const styles = StyleSheet.create({
-//   container: {
-//     flex: 1,
-//     backgroundColor: "#f5f5f5",
-//   },
-//   header: {
-//     alignItems: "center",
-//     padding: 20,
-//   },
-//   profileImageContainer: {
-//     position: "relative",
-//   },
-//   profileImage: {
-//     width: 120,
-//     height: 120,
-//     borderRadius: 60,
-//   },
-//   editImageButton: {
-//     position: "absolute",
-//     right: 0,
-//     bottom: 0,
-//     backgroundColor: "#4a90e2",
-//     padding: 8,
-//     borderRadius: 20,
-//   },
-//   infoSection: {
-//     backgroundColor: "#fff",
-//     padding: 15,
-//     marginHorizontal: 15,
-//     borderRadius: 10,
-//     marginBottom: 20,
-//   },
-//   infoItem: {
-//     flexDirection: "row",
-//     alignItems: "center",
-//     paddingVertical: 10,
-//     borderBottomWidth: 1,
-//     borderBottomColor: "#eee",
-//   },
-//   infoLabel: {
-//     marginLeft: 10,
-//     fontSize: 16,
-//     color: "#666",
-//     flex: 1,
-//   },
-//   infoValue: {
-//     fontSize: 16,
-//     color: "#333",
-//     textAlign: "right",
-//     flex: 2,
-//   },
-//   lovedOnesSection: {
-//     backgroundColor: "#fff",
-//     padding: 15,
-//     marginHorizontal: 15,
-//     borderRadius: 10,
-//   },
-//   sectionHeader: {
-//     flexDirection: "row",
-//     justifyContent: "space-between",
-//     alignItems: "center",
-//     marginBottom: 15,
-//   },
-//   sectionTitle: {
-//     fontSize: 18,
-//     fontWeight: "bold",
-//     color: "#333",
-//   },
-//   addButton: {
-//     backgroundColor: "#4a90e2",
-//     padding: 8,
-//     borderRadius: 20,
-//   },
-//   lovedOneItem: {
-//     flexDirection: "row",
-//     alignItems: "center",
-//     paddingVertical: 10,
-//     borderBottomWidth: 1,
-//     borderBottomColor: "#eee",
-//   },
-//   lovedOneName: {
-//     fontSize: 16,
-//     color: "#333",
-//     marginLeft: 10,
-//   },
-//   lovedOneRelation: {
-//     fontSize: 14,
-//     color: "#666",
-//     marginLeft: 10,
-//   },
-//   modalContainer: {
-//     flex: 1,
-//     justifyContent: "center",
-//     alignItems: "center",
-//     backgroundColor: "rgba(0,0,0,0.5)",
-//   },
-//   modalContent: {
-//     backgroundColor: "#fff",
-//     padding: 20,
-//     borderRadius: 10,
-//     width: "80%",
-//   },
-//   modalTitle: {
-//     fontSize: 18,
-//     fontWeight: "bold",
-//     marginBottom: 15,
-//     textAlign: "center",
-//   },
-//   input: {
-//     borderWidth: 1,
-//     borderColor: "#ddd",
-//     padding: 10,
-//     borderRadius: 5,
-//     marginBottom: 10,
-//   },
-//   modalButtons: {
-//     flexDirection: "row",
-//     justifyContent: "space-between",
-//     marginTop: 15,
-//   },
-//   modalButton: {
-//     padding: 10,
-//     borderRadius: 5,
-//     flex: 1,
-//     marginHorizontal: 5,
-//   },
-//   addButtonModal: {
-//     backgroundColor: "#4a90e2",
-//   },
-//   cancelButton: {
-//     backgroundColor: "#ff6b6b",
-//   },
-//   buttonText: {
-//     color: "#fff",
-//     textAlign: "center",
-//     fontSize: 16,
-//   },
-// });
-
-// export default ProfileScreen;

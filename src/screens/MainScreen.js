@@ -22,16 +22,16 @@ const MainScreen = ({ navigation }) => {
         <View style={styles.buttonContainer}>
           <TouchableOpacity
             style={styles.button}
-            onPress={() => navigation.navigate("Login")}
+            onPress={() => navigation.navigate("Register")}
           >
-            <Text style={styles.buttonText}>Login</Text>
+            <Text style={styles.buttonText}>Sign Up</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.button}
-            onPress={() => navigation.navigate("Register")}
+            style={styles.button2}
+            onPress={() => navigation.navigate("Login")}
           >
-            <Text style={styles.buttonText}>Register</Text>
+            <Text style={styles.buttonText}>Sign In</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -81,6 +81,20 @@ const styles = StyleSheet.create({
   },
   button: {
     backgroundColor: "#4A90E2",
+    paddingVertical: 16,
+    borderRadius: 8,
+    width: "100%",
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  button2: {
+    backgroundColor: "grey",
     paddingVertical: 16,
     borderRadius: 8,
     width: "100%",

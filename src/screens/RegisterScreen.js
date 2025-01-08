@@ -10,19 +10,30 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  Alert,
+  Modal,
+  ActivityIndicator,
 } from "react-native";
 
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { register } from "../api/auth";
 import { useUser } from "../api/UserContext"; // Import UserContext
+import axios from "axios";
 
 const RegisterScreen = ({ navigation }) => {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [loading, setLoading] = useState(false);
   const { saveUser } = useUser(); // Access UserContext to save user data
+
+  const [verificationModalVisible, setVerificationModalVisible] =
+    useState(false);
+  const [verificationCode, setVerificationCode] = useState("");
+  const [verificationLoading, setVerificationLoading] = useState(false);
+  const [registeredEmail, setRegisteredEmail] = useState("");
 
   useEffect(() => {
     const backAction = () => {
@@ -37,6 +48,58 @@ const RegisterScreen = ({ navigation }) => {
 
     return () => backHandler.remove();
   }, [navigation]);
+
+  const handleVerification = async () => {
+    if (!verificationCode) {
+      Alert.alert("Error", "Please enter the verification code");
+      return;
+    }
+
+    try {
+      setVerificationLoading(true);
+      console.log("Sending verification request:", {
+        email: registeredEmail,
+        code: verificationCode,
+      });
+
+      const response = await axios.post(
+        "https://seal-app-doaaw.ondigitalocean.app/api/auth/verify-registration",
+        {
+          email: registeredEmail,
+          code: verificationCode,
+        }
+      );
+
+      console.log("Verification response:", response.data);
+
+      if (response.data) {
+        Alert.alert("Success", "Email verified successfully!", [
+          {
+            text: "OK",
+            onPress: () => {
+              setVerificationModalVisible(false);
+              navigation.navigate("Login");
+            },
+          },
+        ]);
+      } else {
+        Alert.alert("Error", "Verification failed. Please try again.");
+      }
+    } catch (error) {
+      console.log("Verification error:", error.response?.data || error.message);
+
+      let errorMessage = "Failed to verify email. Please try again.";
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.response?.data?.error) {
+        errorMessage = error.response.data.error;
+      }
+
+      Alert.alert("Verification Failed", errorMessage);
+    } finally {
+      setVerificationLoading(false);
+    }
+  };
 
   const handleRegister = async () => {
     const trimmedName = name.trim();
@@ -82,49 +145,39 @@ const RegisterScreen = ({ navigation }) => {
     }
 
     try {
-      const requestBody = {
+      setLoading(true);
+      console.log("Sending registration request with:", {
         name: trimmedName,
         email: trimmedEmail,
-        password: trimmedPassword,
         phone_number: trimmedPhoneNumber,
-      };
+      });
 
-      console.log("Request Body:", requestBody);
-
-      const response = await register(
-        requestBody.name,
-        requestBody.email,
-        requestBody.password,
-        requestBody.phone_number
+      const response = await axios.post(
+        "https://seal-app-doaaw.ondigitalocean.app/api/auth/register",
+        {
+          name: trimmedName,
+          email: trimmedEmail,
+          password: trimmedPassword,
+          phone_number: trimmedPhoneNumber,
+        }
       );
 
-      console.log("API Response:", response);
+      console.log("Registration response:", response.data);
 
-      //   if (response.token) {
-      //     alert("Registration successful!");
-      //     navigation.navigate("HomeTabs");
-      //   }
-      if (response.token && response.user) {
-        // Save user and token in context and AsyncStorage
-        await saveUser(response.user, response.token);
-
-        Alert.alert("Success", "Registration successful!", [
-          {
-            text: "OK",
-            onPress: () => navigation.navigate("HomeTabs"),
-          },
-        ]);
-      } else if (
-        response.message &&
-        response.message.includes("already registered")
-      ) {
-        alert("User is already registered. Please login.");
-      } else {
-        alert(response.message || "Registration failed. Please try again.");
+      if (response.data) {
+        setRegisteredEmail(trimmedEmail);
+        setVerificationModalVisible(true);
       }
     } catch (error) {
-      console.error("API Error:", error);
-      alert("An error occurred during registration. Please try again.");
+      console.log("Registration error:", error.response?.data || error.message);
+      Alert.alert(
+        "Registration Failed",
+        error.response?.data?.message ||
+          error.response?.data?.error ||
+          "Failed to register. Please try again."
+      );
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -170,6 +223,7 @@ const RegisterScreen = ({ navigation }) => {
                   style={styles.input}
                   placeholder="Full Name"
                   value={name}
+                  placeholderTextColor="#4A90E2"
                   onChangeText={setName}
                 />
               </View>
@@ -185,6 +239,7 @@ const RegisterScreen = ({ navigation }) => {
                   style={styles.input}
                   placeholder="Email Address"
                   value={email}
+                  placeholderTextColor="#4A90E2"
                   onChangeText={setEmail}
                   keyboardType="email-address"
                   autoCapitalize="none"
@@ -202,6 +257,7 @@ const RegisterScreen = ({ navigation }) => {
                   style={styles.input}
                   placeholder="Password"
                   value={password}
+                  placeholderTextColor="#4A90E2"
                   onChangeText={setPassword}
                   secureTextEntry
                 />
@@ -218,6 +274,7 @@ const RegisterScreen = ({ navigation }) => {
                   style={styles.input}
                   placeholder="Phone Number"
                   value={phoneNumber}
+                  placeholderTextColor="#4A90E2"
                   onChangeText={setPhoneNumber}
                   keyboardType="phone-pad"
                 />
@@ -227,8 +284,13 @@ const RegisterScreen = ({ navigation }) => {
             <TouchableOpacity
               style={styles.registerButton}
               onPress={handleRegister}
+              disabled={loading}
             >
-              <Text style={styles.registerButtonText}>Create Account</Text>
+              {loading ? (
+                <ActivityIndicator color="white" />
+              ) : (
+                <Text style={styles.registerButtonText}>Create Account</Text>
+              )}
             </TouchableOpacity>
 
             <View style={styles.loginPrompt}>
@@ -240,6 +302,52 @@ const RegisterScreen = ({ navigation }) => {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={verificationModalVisible}
+        onRequestClose={() => setVerificationModalVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Email Verification</Text>
+            <Text style={styles.modalSubtitle}>
+              Please enter the verification code sent to your email
+            </Text>
+            <TextInput
+              style={styles.verificationInput}
+              placeholder="Enter verification code"
+              placeholderTextColor="#4A90E2"
+              value={verificationCode}
+              onChangeText={setVerificationCode}
+              keyboardType="numeric"
+            />
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.verifyButton]}
+                onPress={handleVerification}
+                disabled={verificationLoading}
+              >
+                {verificationLoading ? (
+                  <ActivityIndicator color="white" />
+                ) : (
+                  <Text style={styles.buttonText}>Verify</Text>
+                )}
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => {
+                  setVerificationModalVisible(false);
+                  navigation.navigate("Login");
+                }}
+              >
+                <Text style={styles.buttonText}>Skip</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -334,6 +442,67 @@ const styles = StyleSheet.create({
   },
   loginLink: {
     color: "#4A90E2",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.5)",
+  },
+  modalContent: {
+    backgroundColor: "white",
+    borderRadius: 16,
+    padding: 20,
+    width: "90%",
+    maxWidth: 400,
+    alignItems: "center",
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 8,
+    textAlign: "center",
+  },
+  modalSubtitle: {
+    fontSize: 16,
+    color: "#666",
+    marginBottom: 20,
+    textAlign: "center",
+  },
+  verificationInput: {
+    width: "100%",
+    borderWidth: 1,
+    borderColor: "#E1E1E1",
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 20,
+    fontSize: 18,
+    textAlign: "center",
+    letterSpacing: 2,
+  },
+  modalButtons: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    width: "100%",
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  verifyButton: {
+    backgroundColor: "#4A90E2",
+  },
+  cancelButton: {
+    backgroundColor: "#EA4335",
+  },
+  buttonText: {
+    color: "white",
     fontSize: 16,
     fontWeight: "600",
   },

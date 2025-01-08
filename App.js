@@ -17,6 +17,8 @@ import HealthMonitoringScreen from "./src/screens/HealthMonitoringScreen";
 import CreateTaskScreen from "./src/screens/CreateTaskScreen";
 import ProfileScreen from "./src/screens/ProfileScreen";
 import EmergencyButton from "./src/screens/EmergencyButton";
+import LovedOneDetailsScreen from "./src/screens/LovedOneDetailsScreen";
+import TaskDetailsScreen from "./src/screens/TaskDetailsScreen";
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -37,6 +39,8 @@ function MainTabs() {
             iconName = focused ? "pulse" : "pulse-outline";
           } else if (route.name === "Emergency") {
             iconName = focused ? "alert-circle" : "alert-circle-outline";
+          } else if (route.name === "Profile") {
+            iconName = focused ? "person" : "person-outline";
           }
 
           return <Ionicons name={iconName} size={size} color={color} />;
@@ -95,9 +99,16 @@ export default function App() {
               <Stack.Screen name="HomeTabs" component={MainTabs} />
               <Stack.Screen name="CreateTask" component={CreateTaskScreen} />
               <Stack.Screen
+<<<<<<< HEAD
                 name="EmergencyButton"
                 component={EmergencyButton}
               />
+=======
+                name="LovedOneDetails"
+                component={LovedOneDetailsScreen}
+              />
+              <Stack.Screen name="TaskDetails" component={TaskDetailsScreen} />
+>>>>>>> origin/mohammed
             </Stack.Navigator>
           </NavigationContainer>
         </SafeAreaProvider>
