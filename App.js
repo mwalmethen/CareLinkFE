@@ -4,6 +4,8 @@ import { createStackNavigator } from "@react-navigation/stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { UserProvider } from "./src/api/UserContext";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 // Import screens
 import MainScreen from "./src/screens/MainScreen";
@@ -17,6 +19,7 @@ import ProfileScreen from "./src/screens/ProfileScreen";
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
+const queryClient = new QueryClient();
 
 function MainTabs() {
   return (
@@ -74,20 +77,24 @@ function MainTabs() {
 
 export default function App() {
   return (
-    <SafeAreaProvider>
-      <NavigationContainer>
-        <Stack.Navigator
-          screenOptions={{
-            headerShown: false,
-          }}
-        >
-          <Stack.Screen name="Main" component={MainScreen} />
-          <Stack.Screen name="Login" component={LoginScreen} />
-          <Stack.Screen name="Register" component={RegisterScreen} />
-          <Stack.Screen name="HomeTabs" component={MainTabs} />
-          <Stack.Screen name="CreateTask" component={CreateTaskScreen} />
-        </Stack.Navigator>
-      </NavigationContainer>
-    </SafeAreaProvider>
+    <QueryClientProvider client={queryClient}>
+      <UserProvider>
+        <SafeAreaProvider>
+          <NavigationContainer>
+            <Stack.Navigator
+              screenOptions={{
+                headerShown: false,
+              }}
+            >
+              <Stack.Screen name="Main" component={MainScreen} />
+              <Stack.Screen name="Login" component={LoginScreen} />
+              <Stack.Screen name="Register" component={RegisterScreen} />
+              <Stack.Screen name="HomeTabs" component={MainTabs} />
+              <Stack.Screen name="CreateTask" component={CreateTaskScreen} />
+            </Stack.Navigator>
+          </NavigationContainer>
+        </SafeAreaProvider>
+      </UserProvider>
+    </QueryClientProvider>
   );
 }

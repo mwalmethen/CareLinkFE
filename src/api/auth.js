@@ -5,11 +5,14 @@ const register = async (name, email, password, phone_number) => {
   try {
     console.log("Sending request to register:", { name, email, phone_number }); // Debug log
 
-    const response = await fetch("http://192.168.2.96:5000/api/auth/register", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email, password, phone_number }),
-    });
+    const response = await fetch(
+      "https://seal-app-doaaw.ondigitalocean.app/api/auth/register",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, password, phone_number }),
+      }
+    );
 
     console.log("Raw response:", response); // Log raw response
 
@@ -61,11 +64,14 @@ const register = async (name, email, password, phone_number) => {
 
 const login = async (email, password) => {
   try {
-    const response = await fetch("http://192.168.2.96:5000/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
+    const response = await fetch(
+      "https://seal-app-doaaw.ondigitalocean.app/api/auth/login",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      }
+    );
     const data = await response.json();
     if (data.token) {
       await AsyncStorage.setItem("token", data.token);

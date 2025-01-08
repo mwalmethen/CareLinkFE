@@ -10,19 +10,19 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  Alert,
 } from "react-native";
 
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { register } from "../api/auth";
+import { useUser } from "../api/UserContext"; // Import UserContext
 
 const RegisterScreen = ({ navigation }) => {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
+  const { saveUser } = useUser(); // Access UserContext to save user data
 
   useEffect(() => {
     const backAction = () => {
@@ -100,9 +100,20 @@ const RegisterScreen = ({ navigation }) => {
 
       console.log("API Response:", response);
 
-      if (response.token) {
-        alert("Registration successful!");
-        navigation.navigate("HomeTabs");
+      //   if (response.token) {
+      //     alert("Registration successful!");
+      //     navigation.navigate("HomeTabs");
+      //   }
+      if (response.token && response.user) {
+        // Save user and token in context and AsyncStorage
+        await saveUser(response.user, response.token);
+
+        Alert.alert("Success", "Registration successful!", [
+          {
+            text: "OK",
+            onPress: () => navigation.navigate("HomeTabs"),
+          },
+        ]);
       } else if (
         response.message &&
         response.message.includes("already registered")
