@@ -8,6 +8,9 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Keyboard,
+  TouchableWithoutFeedback,
+  ScrollView,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -35,6 +38,11 @@ const EmergencyButton = ({ navigation }) => {
     queryKey: ["lovedOnes"],
     queryFn: getAllLovedOnes,
     enabled: true,
+  });
+
+  const { data: lovedOnes = [] } = useQuery({
+    queryKey: ["lovedOnes"],
+    queryFn: getAllLovedOnes,
   });
 
   useEffect(() => {
@@ -74,81 +82,83 @@ const EmergencyButton = ({ navigation }) => {
           <View style={{ width: 24 }} />
         </View>
 
-        <View style={styles.content}>
-          <View style={styles.formContainer}>
-            <View style={styles.section}>
-              <Text style={styles.label}>Loved One</Text>
-              {isLoading && <ActivityIndicator size="large" color="#4A90E2" />}
-              {error && (
-                <Text style={styles.errorText}>Failed to load loved ones.</Text>
-              )}
-              {!isLoading && !error && lovedOneItems.length > 0 ? (
-                <DropDownPicker
-                  open={lovedOneOpen}
-                  value={lovedOne}
-                  items={lovedOneItems}
-                  setOpen={setLovedOneOpen}
-                  setValue={setLovedOne}
-                  setItems={setLovedOneItems}
-                  placeholder="Select Loved One"
-                  style={styles.dropdown}
-                  dropDownContainerStyle={styles.dropdownContainer}
-                  textStyle={styles.dropdownText}
-                  placeholderStyle={styles.dropdownPlaceholder}
-                  zIndex={3000}
-                  zIndexInverse={1000}
-                />
-              ) : (
-                !isLoading && (
-                  <Text style={styles.noDataText}>
-                    No loved ones added yet.
-                  </Text>
-                )
-              )}
-            </View>
-
-            <View style={[styles.section, { zIndex: 2000 }]}>
-              <Text style={styles.label}>Emergency Type</Text>
+        <ScrollView
+          style={styles.formContainer}
+          keyboardShouldPersistTaps="handled"
+          nestedScrollEnabled={true}
+        >
+          <View style={styles.section}>
+            <Text style={styles.label}>Loved One</Text>
+            {isLoading && <ActivityIndicator size="large" color="#4A90E2" />}
+            {error && (
+              <Text style={styles.errorText}>Failed to load loved ones.</Text>
+            )}
+            {!isLoading && !error && lovedOneItems.length > 0 ? (
               <DropDownPicker
-                open={open}
-                value={type}
-                items={items}
-                setOpen={setOpen}
-                setValue={setType}
-                setItems={setItems}
+                open={lovedOneOpen}
+                value={lovedOne}
+                items={lovedOneItems}
+                setOpen={setLovedOneOpen}
+                setValue={setLovedOne}
+                setItems={setLovedOneItems}
+                placeholder="Select Loved One"
                 style={styles.dropdown}
                 dropDownContainerStyle={styles.dropdownContainer}
                 textStyle={styles.dropdownText}
                 placeholderStyle={styles.dropdownPlaceholder}
-                placeholder="Select emergency type"
-                zIndex={2000}
-                zIndexInverse={2000}
+                zIndex={3000}
+                zIndexInverse={1000}
+                listMode="SCROLLVIEW"
               />
-            </View>
+            ) : (
+              !isLoading && (
+                <Text style={styles.noDataText}>No loved ones added yet.</Text>
+              )
+            )}
+          </View>
 
-            <View style={[styles.section, { zIndex: 1000 }]}>
+          <View style={[styles.section, { zIndex: 2000 }]}>
+            <Text style={styles.label}>Emergency Type</Text>
+            <DropDownPicker
+              open={open}
+              value={type}
+              items={items}
+              setOpen={setOpen}
+              setValue={setType}
+              setItems={setItems}
+              style={styles.dropdown}
+              dropDownContainerStyle={styles.dropdownContainer}
+              textStyle={styles.dropdownText}
+              placeholderStyle={styles.dropdownPlaceholder}
+              placeholder="Select emergency type"
+              zIndex={2000}
+              zIndexInverse={2000}
+              listMode="SCROLLVIEW"
+            />
+          </View>
+
+          {/* <View style={[styles.section, { zIndex: 1000 }]}>
               <Text style={styles.label}>Requester</Text>
               <View style={styles.requesterContainer}>
                 <Ionicons name="person" size={20} color="#4A90E2" />
                 <Text style={styles.requesterText}>{user.name}</Text>
               </View>
-            </View>
+            </View> */}
 
-            <View style={[styles.section, { zIndex: 1000 }]}>
-              <Text style={styles.label}>Description</Text>
-              <TextInput
-                placeholder="Describe the emergency situation..."
-                value={description}
-                onChangeText={setDescription}
-                style={styles.textArea}
-                multiline
-                numberOfLines={4}
-                textAlignVertical="top"
-                placeholderTextColor="#666"
-              />
-            </View>
+          <View style={[styles.section, { zIndex: 1000 }]}>
+            <Text style={styles.label}>Description</Text>
+            <TextInput
+              placeholder="Describe the emergency situation..."
+              value={description}
+              onChangeText={setDescription}
+              style={styles.textArea}
+              multiline
+              numberOfLines={4}
+              textAlignVertical="top"
+              placeholderTextColor="#666"
+            />
           </View>
-        </View>
+        </ScrollView>
 
         <View style={styles.footer}>
           <TouchableOpacity
@@ -190,13 +200,7 @@ const styles = StyleSheet.create({
   backButton: {
     padding: 8,
   },
-  content: {
-    flex: 1,
-  },
-  formContainer: {
-    padding: 20,
-    gap: 24,
-  },
+  formContainer: { flex: 1, padding: 20, gap: 24 },
   section: {
     gap: 12,
   },
