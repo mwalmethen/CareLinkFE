@@ -68,7 +68,7 @@ const uploadProfileImage = async (imageUri, token) => {
     });
 
     const response = await axios.post(
-      "https://seal-app-doaaw.ondigitalocean.app/api/caregivers/upload-profile-image",
+      "https://seal-app-doaaw.ondigitalocean.app//api/caregivers/upload-profile-image",
       formData,
       {
         headers: {

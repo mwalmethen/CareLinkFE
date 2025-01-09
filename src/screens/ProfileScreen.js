@@ -13,6 +13,8 @@ import {
   Animated,
   Dimensions,
   Pressable,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -209,105 +211,30 @@ const AddLovedOneModal = memo(({ visible, onClose, onAdd, loading }) => {
     age: "",
     medical_history: "",
   });
-  const [activeField, setActiveField] = useState(null);
-
-  const slideAnim = useRef(new Animated.Value(0)).current;
-  const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (visible) {
-      Animated.parallel([
-        Animated.timing(slideAnim, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-      ]).start();
+      setFormData({ name: "", age: "", medical_history: "" });
     }
   }, [visible]);
 
   const handleClose = () => {
-    Animated.parallel([
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-      Animated.timing(fadeAnim, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      onClose();
-      setFormData({ name: "", age: "", medical_history: "" });
-    });
+    onClose();
   };
 
   const handleSubmit = () => {
     onAdd(formData);
   };
 
-  const InputField = ({
-    label,
-    value,
-    onChangeText,
-    placeholder,
-    keyboardType = "default",
-    multiline = false,
-  }) => (
-    <Pressable
-      style={[
-        styles.inputContainer,
-        activeField === label && styles.inputContainerActive,
-      ]}
-      onPress={() => setActiveField(label)}
-    >
-      <Text style={styles.inputLabel}>{label}</Text>
-      <TextInput
-        style={[styles.input, multiline && styles.multilineInput]}
-        value={value}
-        onChangeText={onChangeText}
-        placeholder={placeholder}
-        placeholderTextColor="#999"
-        keyboardType={keyboardType}
-        multiline={multiline}
-        numberOfLines={multiline ? 4 : 1}
-        onFocus={() => setActiveField(label)}
-        onBlur={() => setActiveField(null)}
-      />
-    </Pressable>
-  );
-
   return (
     <Modal
-      animationType="none"
+      animationType="slide"
       transparent={true}
       visible={visible}
       onRequestClose={handleClose}
     >
-      <ModalBackground>
-        <Animated.View
-          style={[
-            styles.modalContent,
-            {
-              opacity: fadeAnim,
-              transform: [
-                {
-                  translateY: slideAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [50, 0],
-                  }),
-                },
-              ],
-            },
-          ]}
-        >
+      <View style={styles.modalContainer}>
+        <View style={styles.modalContent}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Add Loved One</Text>
             <Pressable
@@ -322,30 +249,45 @@ const AddLovedOneModal = memo(({ visible, onClose, onAdd, loading }) => {
           </View>
 
           <ScrollView style={styles.modalForm}>
-            <InputField
-              label="Name"
-              value={formData.name}
-              onChangeText={(text) => setFormData({ ...formData, name: text })}
-              placeholder="Enter name"
-            />
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>Name</Text>
+              <TextInput
+                style={styles.input}
+                value={formData.name}
+                onChangeText={(text) =>
+                  setFormData({ ...formData, name: text })
+                }
+                placeholder="Enter name"
+                placeholderTextColor="#999"
+              />
+            </View>
 
-            <InputField
-              label="Age"
-              value={formData.age}
-              onChangeText={(text) => setFormData({ ...formData, age: text })}
-              placeholder="Enter age"
-              keyboardType="numeric"
-            />
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>Age</Text>
+              <TextInput
+                style={styles.input}
+                value={formData.age}
+                onChangeText={(text) => setFormData({ ...formData, age: text })}
+                placeholder="Enter age"
+                placeholderTextColor="#999"
+                keyboardType="numeric"
+              />
+            </View>
 
-            <InputField
-              label="Medical History"
-              value={formData.medical_history}
-              onChangeText={(text) =>
-                setFormData({ ...formData, medical_history: text })
-              }
-              placeholder="Enter medical history"
-              multiline={true}
-            />
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>Medical History</Text>
+              <TextInput
+                style={[styles.input, styles.multilineInput]}
+                value={formData.medical_history}
+                onChangeText={(text) =>
+                  setFormData({ ...formData, medical_history: text })
+                }
+                placeholder="Enter medical history"
+                placeholderTextColor="#999"
+                multiline
+                numberOfLines={4}
+              />
+            </View>
           </ScrollView>
 
           <View style={styles.modalFooter}>
@@ -378,8 +320,8 @@ const AddLovedOneModal = memo(({ visible, onClose, onAdd, loading }) => {
               )}
             </Pressable>
           </View>
-        </Animated.View>
-      </ModalBackground>
+        </View>
+      </View>
     </Modal>
   );
 });
@@ -388,11 +330,6 @@ const ProfileScreen = ({ navigation }) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [loading, setLoading] = useState(false);
   const [profileImage, setProfileImage] = useState(null);
-  const [newLovedOne, setNewLovedOne] = useState({
-    name: "",
-    age: "",
-    medical_history: "",
-  });
   const { user, token, logout } = useUser();
   const queryClient = useQueryClient();
 
@@ -449,28 +386,30 @@ const ProfileScreen = ({ navigation }) => {
     }
   }, [token]);
 
-  const handleAddLovedOne = useCallback(async () => {
-    if (!newLovedOne.name || !newLovedOne.age || !newLovedOne.medical_history) {
-      Alert.alert("Error", "All fields are required.");
-      return;
-    }
+  const handleAddLovedOne = useCallback(
+    async (formData) => {
+      if (!formData.name || !formData.age || !formData.medical_history) {
+        Alert.alert("Error", "All fields are required.");
+        return;
+      }
 
-    try {
-      setLoading(true);
-      await addLovedOne(newLovedOne, token);
-      queryClient.invalidateQueries(["lovedOnes"]);
-      Alert.alert("Success", "Loved one added successfully!");
-      setModalVisible(false);
-      setNewLovedOne({ name: "", age: "", medical_history: "" });
-    } catch (error) {
-      Alert.alert(
-        "Error",
-        error.response?.data?.message || "Failed to add loved one."
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, [newLovedOne, token, queryClient]);
+      try {
+        setLoading(true);
+        await addLovedOne(formData, token);
+        queryClient.invalidateQueries(["lovedOnes"]);
+        Alert.alert("Success", "Loved one added successfully!");
+        setModalVisible(false);
+      } catch (error) {
+        Alert.alert(
+          "Error",
+          error.response?.data?.message || "Failed to add loved one."
+        );
+      } finally {
+        setLoading(false);
+      }
+    },
+    [token, queryClient]
+  );
 
   const handleDeleteLovedOne = useCallback(
     (lovedOneId) => {
@@ -1017,6 +956,9 @@ const styles = StyleSheet.create({
   modalForm: {
     padding: 20,
   },
+  modalFormContent: {
+    paddingBottom: 20,
+  },
   inputContainer: {
     marginBottom: 20,
   },
@@ -1075,6 +1017,12 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.8,
     transform: [{ scale: 0.98 }],
+  },
+  keyboardAvoidingView: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    width: "100%",
   },
 });
 
