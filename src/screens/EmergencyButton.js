@@ -6,6 +6,8 @@ import {
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -57,120 +59,227 @@ const EmergencyButton = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color="#000" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Emergency Button</Text>
-        <TouchableOpacity>
-          <Ionicons name="person-circle-outline" size={24} color="#000" />
-        </TouchableOpacity>
-      </View>
-      <View>
-        <Text style={styles.label}>Loved One:</Text>
-        {isLoading && <ActivityIndicator size="large" />}
-        {error && (
-          <Text style={{ color: "red" }}>Failed to load loved ones.</Text>
-        )}
-        {!isLoading && !error && lovedOneItems.length > 0 ? (
-          <DropDownPicker
-            open={lovedOneOpen}
-            value={lovedOne}
-            items={lovedOneItems}
-            setOpen={setLovedOneOpen}
-            setValue={setLovedOne}
-            setItems={setLovedOneItems}
-            placeholder="Select Loved One"
-          />
-        ) : (
-          !isLoading && <Text>No loved ones added yet.</Text>
-        )}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={styles.keyboardView}
+      >
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Ionicons name="arrow-back" size={24} color="#333" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Emergency Request</Text>
+          <View style={{ width: 24 }} />
+        </View>
 
-        <Text style={styles.label}>Requester:</Text>
-        <Text style={[styles.input, styles.textArea]}>{user.name}</Text>
+        <View style={styles.content}>
+          <View style={styles.formContainer}>
+            <View style={styles.section}>
+              <Text style={styles.label}>Loved One</Text>
+              {isLoading && <ActivityIndicator size="large" color="#4A90E2" />}
+              {error && (
+                <Text style={styles.errorText}>Failed to load loved ones.</Text>
+              )}
+              {!isLoading && !error && lovedOneItems.length > 0 ? (
+                <DropDownPicker
+                  open={lovedOneOpen}
+                  value={lovedOne}
+                  items={lovedOneItems}
+                  setOpen={setLovedOneOpen}
+                  setValue={setLovedOne}
+                  setItems={setLovedOneItems}
+                  placeholder="Select Loved One"
+                  style={styles.dropdown}
+                  dropDownContainerStyle={styles.dropdownContainer}
+                  textStyle={styles.dropdownText}
+                  placeholderStyle={styles.dropdownPlaceholder}
+                  zIndex={3000}
+                  zIndexInverse={1000}
+                />
+              ) : (
+                !isLoading && (
+                  <Text style={styles.noDataText}>
+                    No loved ones added yet.
+                  </Text>
+                )
+              )}
+            </View>
 
-        <Text style={styles.label}>Type:</Text>
-        <DropDownPicker
-          open={open}
-          value={type}
-          items={items}
-          setOpen={setOpen}
-          setValue={setType}
-          setItems={setItems}
-          style={styles.picker}
-          placeholder="Select type"
-        />
+            <View style={[styles.section, { zIndex: 2000 }]}>
+              <Text style={styles.label}>Emergency Type</Text>
+              <DropDownPicker
+                open={open}
+                value={type}
+                items={items}
+                setOpen={setOpen}
+                setValue={setType}
+                setItems={setItems}
+                style={styles.dropdown}
+                dropDownContainerStyle={styles.dropdownContainer}
+                textStyle={styles.dropdownText}
+                placeholderStyle={styles.dropdownPlaceholder}
+                placeholder="Select emergency type"
+                zIndex={2000}
+                zIndexInverse={2000}
+              />
+            </View>
 
-        <Text style={styles.label}>Description:</Text>
-        <TextInput
-          placeholder="Enter description"
-          value={description}
-          onChangeText={setDescription}
-          style={[styles.input, styles.textArea]}
-        />
+            <View style={[styles.section, { zIndex: 1000 }]}>
+              <Text style={styles.label}>Requester</Text>
+              <View style={styles.requesterContainer}>
+                <Ionicons name="person" size={20} color="#4A90E2" />
+                <Text style={styles.requesterText}>{user.name}</Text>
+              </View>
+            </View>
 
-        <TouchableOpacity style={styles.addButton} onPress={handleButtonPress}>
-          <Text style={styles.addButtonText}>Submit</Text>
-        </TouchableOpacity>
-      </View>
+            <View style={[styles.section, { zIndex: 1000 }]}>
+              <Text style={styles.label}>Description</Text>
+              <TextInput
+                placeholder="Describe the emergency situation..."
+                value={description}
+                onChangeText={setDescription}
+                style={styles.textArea}
+                multiline
+                numberOfLines={4}
+                textAlignVertical="top"
+                placeholderTextColor="#666"
+              />
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.footer}>
+          <TouchableOpacity
+            style={styles.submitButton}
+            onPress={handleButtonPress}
+          >
+            <Ionicons name="warning" size={24} color="white" />
+            <Text style={styles.submitButtonText}>Send Emergency Request</Text>
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#F5F6FA",
+  },
+  keyboardView: {
+    flex: 1,
+  },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: 16,
+    padding: 20,
+    backgroundColor: "white",
+    borderBottomWidth: 1,
+    borderBottomColor: "#E1E1E1",
+    zIndex: 1000,
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: "600",
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#333",
   },
-  container: {
+  backButton: {
+    padding: 8,
+  },
+  content: {
     flex: 1,
-    padding: 16,
-    backgroundColor: "white",
-    gap: 16,
   },
-  input: {
-    backgroundColor: "#F5F6FA",
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#E1E1E1",
-    fontSize: 16,
+  formContainer: {
+    padding: 20,
+    gap: 24,
   },
-  textArea: {
-    height: 100,
-    paddingTop: 16,
+  section: {
+    gap: 12,
   },
   label: {
     fontSize: 16,
-    fontWeight: "500",
-    marginBottom: 8,
+    fontWeight: "600",
+    color: "#333",
   },
-  picker: {
-    height: 50,
-    width: "100%",
+  dropdown: {
     borderWidth: 1,
     borderColor: "#E1E1E1",
     borderRadius: 12,
-    marginBottom: 16,
-    color: "black",
+    backgroundColor: "white",
   },
-  addButton: {
-    margin: 16,
-    backgroundColor: "#4A90E2",
-    padding: 16,
-    borderRadius: 8,
-    alignItems: "center",
+  dropdownContainer: {
+    borderWidth: 1,
+    borderColor: "#E1E1E1",
+    borderRadius: 12,
+    backgroundColor: "white",
   },
-  addButtonText: {
-    color: "white",
+  dropdownText: {
     fontSize: 16,
+    color: "#333",
+  },
+  dropdownPlaceholder: {
+    color: "#666",
+  },
+  requesterContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "white",
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E1E1E1",
+    gap: 12,
+  },
+  requesterText: {
+    fontSize: 16,
+    color: "#333",
+  },
+  textArea: {
+    backgroundColor: "white",
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E1E1E1",
+    fontSize: 16,
+    minHeight: 120,
+    color: "#333",
+  },
+  footer: {
+    padding: 20,
+    backgroundColor: "white",
+    borderTopWidth: 1,
+    borderTopColor: "#E1E1E1",
+  },
+  submitButton: {
+    backgroundColor: "#EA4335",
+    padding: 16,
+    borderRadius: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 12,
+    shadowColor: "#EA4335",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  submitButtonText: {
+    color: "white",
+    fontSize: 18,
     fontWeight: "600",
+  },
+  errorText: {
+    color: "#EA4335",
+    fontSize: 16,
+  },
+  noDataText: {
+    color: "#666",
+    fontSize: 16,
   },
 });
 

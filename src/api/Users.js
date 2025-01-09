@@ -32,7 +32,7 @@ const addLovedOne = async (lovedOne, token) => {
   return response;
 };
 
-export const deleteLovedOne = async (lovedOneId, token) => {
+const deleteLovedOne = async (lovedOneId, token) => {
   try {
     const response = await axios.delete(
       `https://seal-app-doaaw.ondigitalocean.app/api/caregivers/loved-one/${lovedOneId}`,
@@ -52,4 +52,40 @@ export const deleteLovedOne = async (lovedOneId, token) => {
   }
 };
 
-export { getAllLovedOnes, addLovedOne };
+// upload profile image
+const uploadProfileImage = async (imageUri, token) => {
+  try {
+    // Create form data
+    const formData = new FormData();
+    const filename = imageUri.split("/").pop();
+    const match = /\.(\w+)$/.exec(filename);
+    const type = match ? `image/${match[1]}` : "image";
+
+    formData.append("image", {
+      uri: imageUri,
+      name: filename,
+      type: type,
+    });
+
+    const response = await axios.post(
+      "https://seal-app-doaaw.ondigitalocean.app/api/caregivers/upload-profile-image",
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    return response.data;
+  } catch (error) {
+    console.error(
+      "Error uploading profile image:",
+      error.response?.data || error.message
+    );
+    throw error;
+  }
+};
+
+export { getAllLovedOnes, addLovedOne, deleteLovedOne, uploadProfileImage };

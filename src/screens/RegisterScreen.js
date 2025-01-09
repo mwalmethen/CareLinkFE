@@ -13,6 +13,8 @@ import {
   Alert,
   Modal,
   ActivityIndicator,
+  Animated,
+  Dimensions,
 } from "react-native";
 
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -20,6 +22,9 @@ import { Ionicons } from "@expo/vector-icons";
 import { register } from "../api/auth";
 import { useUser } from "../api/UserContext"; // Import UserContext
 import axios from "axios";
+import { LinearGradient } from "expo-linear-gradient";
+
+const { width } = Dimensions.get("window");
 
 const RegisterScreen = ({ navigation }) => {
   const [name, setName] = useState("");
@@ -35,7 +40,35 @@ const RegisterScreen = ({ navigation }) => {
   const [verificationLoading, setVerificationLoading] = useState(false);
   const [registeredEmail, setRegisteredEmail] = useState("");
 
+  // Animation values
+  const fadeAnim = new Animated.Value(0);
+  const slideAnim = new Animated.Value(50);
+  const inputsSlideAnim = new Animated.Value(100);
+
   useEffect(() => {
+    // Animation sequence
+    Animated.sequence([
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+        Animated.spring(slideAnim, {
+          toValue: 0,
+          friction: 8,
+          tension: 40,
+          useNativeDriver: true,
+        }),
+      ]),
+      Animated.spring(inputsSlideAnim, {
+        toValue: 0,
+        friction: 8,
+        tension: 40,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
     const backAction = () => {
       navigation.goBack();
       return true;
@@ -182,180 +215,218 @@ const RegisterScreen = ({ navigation }) => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <TouchableOpacity
-        style={styles.backButton}
-        onPress={() => navigation.goBack()}
-      >
-        <Ionicons name="arrow-back" size={24} color="#000" />
-      </TouchableOpacity>
-
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={{ flex: 1 }}
-      >
-        <ScrollView
-          style={styles.scrollView}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
+    <LinearGradient
+      colors={["#ffffff", "#f0f8ff", "#e6f3ff"]}
+      style={styles.container}
+    >
+      <SafeAreaView style={styles.safeArea}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
         >
-          <View style={styles.content}>
-            <Image
-              source={require("../../assets/CareLink.webp")}
-              style={styles.logo}
-              resizeMode="contain"
-            />
+          <Ionicons name="arrow-back" size={24} color="#333" />
+        </TouchableOpacity>
 
-            <Text style={styles.welcomeText}>Create Account</Text>
-            <Text style={styles.subtitle}>
-              Please fill in the form to continue
-            </Text>
-
-            <View style={styles.inputContainer}>
-              <View style={styles.inputWrapper}>
-                <Ionicons
-                  name="person-outline"
-                  size={20}
-                  color="#666"
-                  style={styles.inputIcon}
-                />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Full Name"
-                  value={name}
-                  placeholderTextColor="#4A90E2"
-                  onChangeText={setName}
-                />
-              </View>
-
-              <View style={styles.inputWrapper}>
-                <Ionicons
-                  name="mail-outline"
-                  size={20}
-                  color="#666"
-                  style={styles.inputIcon}
-                />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Email Address"
-                  value={email}
-                  placeholderTextColor="#4A90E2"
-                  onChangeText={setEmail}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                />
-              </View>
-
-              <View style={styles.inputWrapper}>
-                <Ionicons
-                  name="lock-closed-outline"
-                  size={20}
-                  color="#666"
-                  style={styles.inputIcon}
-                />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Password"
-                  value={password}
-                  placeholderTextColor="#4A90E2"
-                  onChangeText={setPassword}
-                  secureTextEntry
-                />
-              </View>
-
-              <View style={styles.inputWrapper}>
-                <Ionicons
-                  name="call-outline"
-                  size={20}
-                  color="#666"
-                  style={styles.inputIcon}
-                />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Phone Number"
-                  value={phoneNumber}
-                  placeholderTextColor="#4A90E2"
-                  onChangeText={setPhoneNumber}
-                  keyboardType="phone-pad"
-                />
-              </View>
-            </View>
-
-            <TouchableOpacity
-              style={styles.registerButton}
-              onPress={handleRegister}
-              disabled={loading}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={{ flex: 1 }}
+        >
+          <ScrollView
+            style={styles.scrollView}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.scrollContent}
+          >
+            <Animated.View
+              style={[
+                styles.headerContainer,
+                {
+                  opacity: fadeAnim,
+                  transform: [{ translateY: slideAnim }],
+                },
+              ]}
             >
-              {loading ? (
-                <ActivityIndicator color="white" />
-              ) : (
-                <Text style={styles.registerButtonText}>Create Account</Text>
-              )}
-            </TouchableOpacity>
+              <Image
+                source={require("../../assets/CareLink.webp")}
+                style={styles.logo}
+                resizeMode="contain"
+              />
+              <Text style={styles.welcomeText}>Create Account</Text>
+              <Text style={styles.subtitle}>
+                Please fill in the form to continue
+              </Text>
+            </Animated.View>
 
-            <View style={styles.loginPrompt}>
-              <Text style={styles.loginText}>Already have an account? </Text>
-              <TouchableOpacity onPress={() => navigation.navigate("Login")}>
-                <Text style={styles.loginLink}>Sign In</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+            <Animated.View
+              style={[
+                styles.formContainer,
+                {
+                  opacity: fadeAnim,
+                  transform: [{ translateY: inputsSlideAnim }],
+                },
+              ]}
+            >
+              <View style={styles.inputContainer}>
+                <View style={styles.inputWrapper}>
+                  <Ionicons
+                    name="person-outline"
+                    size={20}
+                    color="#4A90E2"
+                    style={styles.inputIcon}
+                  />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Full Name"
+                    value={name}
+                    placeholderTextColor="#666"
+                    onChangeText={setName}
+                  />
+                </View>
 
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={verificationModalVisible}
-        onRequestClose={() => setVerificationModalVisible(false)}
-      >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Email Verification</Text>
-            <Text style={styles.modalSubtitle}>
-              Please enter the verification code sent to your email
-            </Text>
-            <TextInput
-              style={styles.verificationInput}
-              placeholder="Enter verification code"
-              placeholderTextColor="#4A90E2"
-              value={verificationCode}
-              onChangeText={setVerificationCode}
-              keyboardType="numeric"
-            />
-            <View style={styles.modalButtons}>
+                <View style={styles.inputWrapper}>
+                  <Ionicons
+                    name="mail-outline"
+                    size={20}
+                    color="#4A90E2"
+                    style={styles.inputIcon}
+                  />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Email Address"
+                    value={email}
+                    placeholderTextColor="#666"
+                    onChangeText={setEmail}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                  />
+                </View>
+
+                <View style={styles.inputWrapper}>
+                  <Ionicons
+                    name="lock-closed-outline"
+                    size={20}
+                    color="#4A90E2"
+                    style={styles.inputIcon}
+                  />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Password"
+                    value={password}
+                    placeholderTextColor="#666"
+                    onChangeText={setPassword}
+                    secureTextEntry
+                  />
+                </View>
+
+                <View style={styles.inputWrapper}>
+                  <Ionicons
+                    name="call-outline"
+                    size={20}
+                    color="#4A90E2"
+                    style={styles.inputIcon}
+                  />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Phone Number"
+                    value={phoneNumber}
+                    placeholderTextColor="#666"
+                    onChangeText={setPhoneNumber}
+                    keyboardType="phone-pad"
+                  />
+                </View>
+              </View>
+
               <TouchableOpacity
-                style={[styles.modalButton, styles.verifyButton]}
+                style={styles.registerButton}
+                onPress={handleRegister}
+                disabled={loading}
+              >
+                <LinearGradient
+                  colors={["#4A90E2", "#357ABD"]}
+                  style={styles.gradientButton}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                >
+                  {loading ? (
+                    <ActivityIndicator color="white" />
+                  ) : (
+                    <>
+                      <Ionicons name="person-add" size={24} color="white" />
+                      <Text style={styles.buttonText}>Create Account</Text>
+                    </>
+                  )}
+                </LinearGradient>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.loginLink}
+                onPress={() => navigation.navigate("Login")}
+              >
+                <Text style={styles.loginText}>
+                  Already have an account?{" "}
+                  <Text style={styles.loginTextBold}>Sign In</Text>
+                </Text>
+              </TouchableOpacity>
+            </Animated.View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={verificationModalVisible}
+          onRequestClose={() => setVerificationModalVisible(false)}
+        >
+          <View style={styles.modalContainer}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Verify Your Email</Text>
+              <Text style={styles.modalSubtitle}>
+                Please enter the verification code sent to your email
+              </Text>
+
+              <View style={styles.verificationInputWrapper}>
+                <TextInput
+                  style={styles.verificationInput}
+                  placeholder="Enter verification code"
+                  value={verificationCode}
+                  onChangeText={setVerificationCode}
+                  keyboardType="number-pad"
+                  maxLength={6}
+                  placeholderTextColor="#666"
+                />
+              </View>
+
+              <TouchableOpacity
+                style={styles.verifyButton}
                 onPress={handleVerification}
                 disabled={verificationLoading}
               >
-                {verificationLoading ? (
-                  <ActivityIndicator color="white" />
-                ) : (
-                  <Text style={styles.buttonText}>Verify</Text>
-                )}
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton]}
-                onPress={() => {
-                  setVerificationModalVisible(false);
-                  navigation.navigate("Login");
-                }}
-              >
-                <Text style={styles.buttonText}>Skip</Text>
+                <LinearGradient
+                  colors={["#4A90E2", "#357ABD"]}
+                  style={styles.gradientButton}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                >
+                  {verificationLoading ? (
+                    <ActivityIndicator color="white" />
+                  ) : (
+                    <Text style={styles.buttonText}>Verify</Text>
+                  )}
+                </LinearGradient>
               </TouchableOpacity>
             </View>
           </View>
-        </View>
-      </Modal>
-    </SafeAreaView>
+        </Modal>
+      </SafeAreaView>
+    </LinearGradient>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "white",
+  },
+  safeArea: {
+    flex: 1,
   },
   backButton: {
     padding: 16,
@@ -367,101 +438,111 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingBottom: 24,
   },
-  content: {
-    flex: 1,
-    paddingHorizontal: 20,
-  },
-  inputContainer: {
-    gap: 16,
-    marginBottom: 32,
+  headerContainer: {
+    alignItems: "center",
+    paddingTop: 20,
+    paddingHorizontal: 24,
   },
   logo: {
-    width: 120,
-    height: 120,
-    alignSelf: "center",
-    marginBottom: 32,
+    width: width * 0.4,
+    height: width * 0.4,
+    maxWidth: 180,
+    maxHeight: 180,
+    marginBottom: 24,
   },
   welcomeText: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: "700",
     color: "#333",
     marginBottom: 8,
+    textAlign: "center",
   },
   subtitle: {
     fontSize: 16,
     color: "#666",
     marginBottom: 32,
+    textAlign: "center",
+  },
+  formContainer: {
+    paddingHorizontal: 24,
+  },
+  inputContainer: {
+    gap: 16,
+    marginBottom: 24,
   },
   inputWrapper: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#F5F6FA",
+    backgroundColor: "white",
     borderRadius: 12,
-    paddingHorizontal: 16,
     borderWidth: 1,
     borderColor: "#E1E1E1",
+    paddingHorizontal: 16,
+    height: 56,
   },
   inputIcon: {
     marginRight: 12,
   },
   input: {
-    backgroundColor: "#F5F5F5",
-    padding: 16,
-    borderRadius: 8,
+    flex: 1,
     fontSize: 16,
+    color: "#333",
   },
   registerButton: {
-    backgroundColor: "#4A90E2",
-    paddingVertical: 16,
+    marginBottom: 16,
     borderRadius: 12,
-    marginTop: 24,
+    overflow: "hidden",
+    elevation: 3,
     shadowColor: "#4A90E2",
     shadowOffset: {
       width: 0,
       height: 4,
     },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.3,
     shadowRadius: 8,
-    elevation: 4,
   },
-  registerButtonText: {
+  gradientButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 16,
+    gap: 12,
+  },
+  buttonText: {
     color: "white",
-    textAlign: "center",
     fontSize: 18,
     fontWeight: "600",
   },
-  loginPrompt: {
-    flexDirection: "row",
-    justifyContent: "center",
-    marginTop: 24,
-    marginBottom: 32,
+  loginLink: {
+    alignItems: "center",
+    paddingVertical: 8,
   },
   loginText: {
+    fontSize: 16,
     color: "#666",
-    fontSize: 16,
   },
-  loginLink: {
+  loginTextBold: {
     color: "#4A90E2",
-    fontSize: 16,
     fontWeight: "600",
   },
   modalContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(0,0,0,0.5)",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    padding: 24,
   },
   modalContent: {
     backgroundColor: "white",
     borderRadius: 16,
-    padding: 20,
-    width: "90%",
+    padding: 24,
+    width: "100%",
     maxWidth: 400,
     alignItems: "center",
   },
   modalTitle: {
     fontSize: 24,
-    fontWeight: "600",
+    fontWeight: "700",
     color: "#333",
     marginBottom: 8,
     textAlign: "center",
@@ -469,42 +550,35 @@ const styles = StyleSheet.create({
   modalSubtitle: {
     fontSize: 16,
     color: "#666",
-    marginBottom: 20,
+    marginBottom: 24,
     textAlign: "center",
+  },
+  verificationInputWrapper: {
+    width: "100%",
+    marginBottom: 24,
   },
   verificationInput: {
-    width: "100%",
+    backgroundColor: "white",
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: "#E1E1E1",
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 20,
-    fontSize: 18,
+    padding: 16,
+    fontSize: 16,
+    color: "#333",
     textAlign: "center",
-    letterSpacing: 2,
-  },
-  modalButtons: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    width: "100%",
-    gap: 12,
-  },
-  modalButton: {
-    flex: 1,
-    padding: 12,
-    borderRadius: 8,
-    alignItems: "center",
   },
   verifyButton: {
-    backgroundColor: "#4A90E2",
-  },
-  cancelButton: {
-    backgroundColor: "#EA4335",
-  },
-  buttonText: {
-    color: "white",
-    fontSize: 16,
-    fontWeight: "600",
+    width: "100%",
+    borderRadius: 12,
+    overflow: "hidden",
+    elevation: 3,
+    shadowColor: "#4A90E2",
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
   },
 });
 
