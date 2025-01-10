@@ -46,4 +46,44 @@ const checkToken = async () => {
   }
 };
 
-export { deleteToken, getToken, setToken, checkToken };
+const clearUserData = async () => {
+  try {
+    console.log("Clearing user data from storage");
+    await AsyncStorage.multiRemove(["token", "user", "userProfileImage"]);
+    console.log("Successfully cleared user data from storage");
+  } catch (error) {
+    console.error("Error clearing user data:", error);
+  }
+};
+
+const setProfileImage = async (imageUrl) => {
+  try {
+    console.log("Saving profile image to storage:", imageUrl);
+    await AsyncStorage.setItem("userProfileImage", imageUrl);
+    console.log("Successfully saved profile image to storage");
+  } catch (error) {
+    console.error("Error saving profile image:", error);
+  }
+};
+
+const getProfileImage = async () => {
+  try {
+    console.log("Getting profile image from storage");
+    const imageUrl = await AsyncStorage.getItem("userProfileImage");
+    console.log("Retrieved profile image from storage:", imageUrl);
+    return imageUrl;
+  } catch (error) {
+    console.error("Error retrieving profile image:", error);
+    return null;
+  }
+};
+
+export {
+  deleteToken,
+  getToken,
+  setToken,
+  checkToken,
+  clearUserData,
+  setProfileImage,
+  getProfileImage,
+};

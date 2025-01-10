@@ -16,6 +16,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useUser } from "../api/UserContext";
@@ -24,11 +25,17 @@ import {
   addLovedOne,
   deleteLovedOne,
   uploadProfileImage,
+  uploadLovedOneProfileImage,
 } from "../api/Users";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
 import { BlurView } from "expo-blur";
+import {
+  clearUserData,
+  setProfileImage,
+  getProfileImage,
+} from "../api/storage";
 
 const { width } = Dimensions.get("window");
 
@@ -46,110 +53,115 @@ const MenuButton = memo(({ icon, text, onPress }) => (
   </TouchableOpacity>
 ));
 
-const LovedOneCard = memo(({ lovedOne, onPress, onDelete, animValue }) => {
-  const getRandomGradient = () => {
-    const gradients = [
-      ["#4A90E2", "#357ABD"], // Blue
-      ["#34A853", "#2E8B4A"], // Green
-      ["#FBBC05", "#F5A623"], // Yellow
-      ["#9B59B6", "#8E44AD"], // Purple
-      ["#E67E22", "#D35400"], // Orange
-    ];
-    return gradients[Math.floor(Math.random() * gradients.length)];
-  };
+const LovedOneCard = memo(
+  ({ lovedOne, onPress, onDelete, animValue, onImagePick, isLoading }) => {
+    const imageUrl = lovedOne.profileImage?.startsWith("http")
+      ? lovedOne.profileImage
+      : lovedOne.profileImage
+      ? `http://seal-app-doaaw.ondigitalocean.app/${lovedOne.profileImage}`
+      : null;
 
-  return (
-    <Animated.View
-      style={[
-        styles.lovedOneItem,
-        {
-          opacity: animValue,
-          transform: [
-            {
-              translateX: animValue.interpolate({
-                inputRange: [0, 1],
-                outputRange: [50, 0],
-              }),
-            },
-          ],
-        },
-      ]}
-    >
-      <Pressable
-        style={({ pressed }) => [
-          styles.lovedOneContent,
-          pressed && styles.pressed,
+    console.log("Loading loved one image:", imageUrl);
+
+    return (
+      <Animated.View
+        style={[
+          styles.lovedOneItem,
+          {
+            opacity: animValue,
+            transform: [
+              {
+                translateX: animValue.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [50, 0],
+                }),
+              },
+            ],
+          },
         ]}
-        onPress={onPress}
       >
-        <LinearGradient
-          colors={["#ffffff", "#f8f9fa"]}
-          style={styles.lovedOneGradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
+        <Pressable
+          style={({ pressed }) => [
+            styles.lovedOneContent,
+            pressed && styles.pressed,
+          ]}
+          onPress={onPress}
         >
-          <View style={styles.lovedOneHeader}>
-            <View style={styles.lovedOneIconContainer}>
-              <LinearGradient
-                colors={getRandomGradient()}
-                style={styles.iconGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
+          <View style={styles.lovedOneGradient}>
+            <View style={styles.lovedOneHeader}>
+              <Pressable
+                style={styles.lovedOneIconContainer}
+                onPress={() => onImagePick(lovedOne._id)}
               >
-                <Ionicons name="heart" size={20} color="white" />
-              </LinearGradient>
-            </View>
-            <View style={styles.lovedOneInfo}>
-              <Text style={styles.lovedOneName}>{lovedOne.name}</Text>
-              <View style={styles.ageContainer}>
-                <Ionicons name="calendar-outline" size={14} color="#666" />
-                <Text style={styles.lovedOneAge}>Age: {lovedOne.age}</Text>
+                <View style={styles.lovedOneProfileImageContainer}>
+                  {imageUrl ? (
+                    <Image
+                      source={{ uri: imageUrl }}
+                      style={styles.lovedOneProfileImageStyle}
+                      onError={(error) => {
+                        console.error(
+                          "Image loading error:",
+                          error.nativeEvent.error
+                        );
+                      }}
+                    />
+                  ) : (
+                    <Ionicons name="person" size={30} color="#4A90E2" />
+                  )}
+                </View>
+              </Pressable>
+              <View style={styles.lovedOneInfo}>
+                <Text style={styles.lovedOneName}>{lovedOne.name}</Text>
+                <View style={styles.ageContainer}>
+                  <Ionicons name="calendar-outline" size={14} color="#666" />
+                  <Text style={styles.lovedOneAge}>Age: {lovedOne.age}</Text>
+                </View>
               </View>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.deleteButton,
+                  pressed && styles.deletePressed,
+                ]}
+                onPress={() => onDelete(lovedOne._id)}
+              >
+                <View style={styles.deleteButtonInner}>
+                  <Ionicons name="trash-outline" size={16} color="#EA4335" />
+                </View>
+              </Pressable>
             </View>
-            <Pressable
-              style={({ pressed }) => [
-                styles.deleteButton,
-                pressed && styles.deletePressed,
-              ]}
-              onPress={() => onDelete(lovedOne._id)}
-            >
-              <View style={styles.deleteButtonInner}>
-                <Ionicons name="trash-outline" size={16} color="#EA4335" />
-              </View>
-            </Pressable>
-          </View>
 
-          <View style={styles.medicalHistoryContainer}>
-            <View style={styles.medicalHistoryHeader}>
-              <Ionicons name="medical-outline" size={16} color="#4A90E2" />
-              <Text style={styles.medicalHistoryLabel}>Medical History</Text>
+            <View style={styles.medicalHistoryContainer}>
+              <View style={styles.medicalHistoryHeader}>
+                <Ionicons name="medical-outline" size={16} color="#4A90E2" />
+                <Text style={styles.medicalHistoryLabel}>Medical History</Text>
+              </View>
+              <Text style={styles.medicalHistoryText} numberOfLines={2}>
+                {lovedOne.medical_history}
+              </Text>
             </View>
-            <Text style={styles.medicalHistoryText} numberOfLines={2}>
-              {lovedOne.medical_history}
-            </Text>
-          </View>
 
-          <View style={styles.cardFooter}>
-            <View style={styles.footerInfo}>
-              <View style={styles.taskCount}>
-                <Ionicons name="list-outline" size={14} color="#34A853" />
-                <Text style={styles.taskCountText}>12 Tasks</Text>
+            <View style={styles.cardFooter}>
+              <View style={styles.footerInfo}>
+                <View style={styles.taskCount}>
+                  <Ionicons name="list-outline" size={14} color="#34A853" />
+                  <Text style={styles.taskCountText}>12 Tasks</Text>
+                </View>
+                <View style={styles.caregiverCount}>
+                  <Ionicons name="people-outline" size={14} color="#FBBC05" />
+                  <Text style={styles.caregiverCountText}>3 Caregivers</Text>
+                </View>
               </View>
-              <View style={styles.caregiverCount}>
-                <Ionicons name="people-outline" size={14} color="#FBBC05" />
-                <Text style={styles.caregiverCountText}>3 Caregivers</Text>
+              <View style={styles.viewDetailsButton}>
+                <Text style={styles.viewDetailsText}>View Details</Text>
+                <Ionicons name="chevron-forward" size={14} color="#4A90E2" />
               </View>
-            </View>
-            <View style={styles.viewDetailsButton}>
-              <Text style={styles.viewDetailsText}>View Details</Text>
-              <Ionicons name="chevron-forward" size={14} color="#4A90E2" />
             </View>
           </View>
-        </LinearGradient>
-      </Pressable>
-    </Animated.View>
-  );
-});
+        </Pressable>
+      </Animated.View>
+    );
+  }
+);
 
 const EditButton = ({ loading, children }) => {
   if (loading) {
@@ -329,9 +341,59 @@ const AddLovedOneModal = memo(({ visible, onClose, onAdd, loading }) => {
 const ProfileScreen = ({ navigation }) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [loading, setLoading] = useState(false);
+  const { user, token, logout, updateUser } = useUser();
   const [profileImage, setProfileImage] = useState(null);
-  const { user, token, logout } = useUser();
   const queryClient = useQueryClient();
+
+  // Load profile image when component mounts and when user changes
+  useEffect(() => {
+    const loadProfileImage = async () => {
+      try {
+        console.log("Loading profile image...");
+        console.log("Current user data:", user);
+
+        // First try to get the image from storage
+        const savedImageUrl = await getProfileImage();
+        console.log("Saved image URL from storage:", savedImageUrl);
+
+        if (savedImageUrl) {
+          console.log("Setting profile image from storage:", savedImageUrl);
+          setProfileImage(savedImageUrl);
+
+          // Update user context if needed
+          if (
+            user &&
+            (!user.profileImage || user.profileImage !== savedImageUrl)
+          ) {
+            console.log("Updating user context with saved image");
+            const updatedUser = {
+              ...user,
+              profileImage: savedImageUrl,
+            };
+            await AsyncStorage.setItem("user", JSON.stringify(updatedUser));
+            await updateUser(updatedUser);
+          }
+          return;
+        }
+
+        // If not in storage, try user context
+        if (user?.profileImage) {
+          const imageUrl = user.profileImage.startsWith("http")
+            ? user.profileImage
+            : `http://seal-app-doaaw.ondigitalocean.app/${user.profileImage}`;
+          console.log("Setting profile image from user context:", imageUrl);
+          setProfileImage(imageUrl);
+
+          // Save to storage for future use
+          await setProfileImage(imageUrl);
+        }
+      } catch (error) {
+        console.error("Error loading profile image:", error);
+      }
+    };
+
+    loadProfileImage();
+  }, [user, updateUser]);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["lovedOnes"],
@@ -364,27 +426,76 @@ const ProfileScreen = ({ navigation }) => {
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [1, 1],
-        quality: 0.8, // Slightly reduced for better performance
+        quality: 0.8,
       });
 
       if (!result.canceled) {
         setLoading(true);
         try {
-          await uploadProfileImage(result.assets[0].uri, token);
-          setProfileImage(result.assets[0].uri);
-          Alert.alert("Success", "Profile image updated successfully!");
+          console.log("Uploading new image...");
+          const response = await uploadProfileImage(
+            result.assets[0].uri,
+            token
+          );
+          console.log(
+            "Profile image upload response:",
+            JSON.stringify(response, null, 2)
+          );
+
+          if (response.caregiver && response.caregiver.profileImage) {
+            const imagePath = response.caregiver.profileImage;
+            console.log("New image path:", imagePath);
+
+            // Format the image URL
+            const imageUrl = imagePath.startsWith("http")
+              ? imagePath
+              : `http://seal-app-doaaw.ondigitalocean.app/${imagePath}`;
+
+            console.log("Formatted image URL:", imageUrl);
+
+            // First save to storage
+            await setProfileImage(imageUrl);
+            console.log("Saved image URL to storage");
+
+            // Update user context
+            const updatedUser = {
+              ...user,
+              profileImage: imageUrl,
+            };
+
+            // Save to AsyncStorage
+            await AsyncStorage.setItem("user", JSON.stringify(updatedUser));
+            console.log("Saved user data to AsyncStorage");
+
+            // Update user context
+            await updateUser(updatedUser);
+            console.log("Updated user context");
+
+            // Update local state last
+            setProfileImage(imageUrl);
+            console.log("Updated local state with new image");
+
+            Alert.alert("Success", "Profile image updated successfully!");
+          } else {
+            console.error("Invalid response format:", response);
+            Alert.alert("Error", "Invalid response from server");
+          }
         } catch (error) {
+          console.error("Error uploading image:", error);
           Alert.alert(
             "Error",
-            "Failed to upload profile image. Please try again."
+            error.response?.data?.message ||
+              "Failed to upload profile image. Please try again."
           );
+        } finally {
+          setLoading(false);
         }
-        setLoading(false);
       }
     } catch (error) {
+      console.error("Image picker error:", error);
       Alert.alert("Error", "Failed to pick image. Please try again.");
     }
-  }, [token]);
+  }, [token, user, updateUser]);
 
   const handleAddLovedOne = useCallback(
     async (formData) => {
@@ -440,6 +551,117 @@ const ProfileScreen = ({ navigation }) => {
     [token, queryClient]
   );
 
+  const handleLovedOneImagePick = useCallback(
+    async (lovedOneId) => {
+      try {
+        const { status } =
+          await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== "granted") {
+          Alert.alert(
+            "Permission needed",
+            "Please grant permission to access your photos."
+          );
+          return;
+        }
+
+        const result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          allowsEditing: true,
+          aspect: [1, 1],
+          quality: 0.8,
+        });
+
+        if (!result.canceled) {
+          const loadingLovedOneId = lovedOneId;
+          setLoadingLovedOneId(loadingLovedOneId);
+
+          try {
+            const response = await uploadLovedOneProfileImage(
+              lovedOneId,
+              result.assets[0].uri,
+              token
+            );
+            console.log("Loved one image response:", response);
+
+            if (response.lovedOne && response.lovedOne.profileImage) {
+              const storageKey = `lovedOne_${lovedOneId}_image`;
+              await AsyncStorage.setItem(
+                storageKey,
+                response.lovedOne.profileImage
+              );
+
+              const imageUrl = response.lovedOne.profileImage.startsWith("http")
+                ? response.lovedOne.profileImage
+                : `http://seal-app-doaaw.ondigitalocean.app/${response.lovedOne.profileImage}`;
+
+              queryClient.setQueryData(["lovedOnes"], (oldData) => {
+                return oldData.map((lovedOne) => {
+                  if (lovedOne._id === lovedOneId) {
+                    return {
+                      ...lovedOne,
+                      profileImage: imageUrl,
+                    };
+                  }
+                  return lovedOne;
+                });
+              });
+
+              Alert.alert(
+                "Success",
+                "Loved one's photo has been updated successfully!"
+              );
+            }
+          } catch (error) {
+            console.error("Upload error:", error);
+            Alert.alert(
+              "Error",
+              error.response?.data?.message ||
+                "Failed to upload loved one's photo. Please try again."
+            );
+          } finally {
+            setLoadingLovedOneId(null);
+          }
+        }
+      } catch (error) {
+        Alert.alert("Error", "Failed to pick image. Please try again.");
+      }
+    },
+    [token, queryClient]
+  );
+
+  // Load loved ones' images from AsyncStorage when data is fetched
+  useEffect(() => {
+    const loadLovedOnesImages = async () => {
+      if (data && data.length > 0) {
+        const updatedLovedOnes = await Promise.all(
+          data.map(async (lovedOne) => {
+            const storageKey = `lovedOne_${lovedOne._id}_image`;
+            const savedImagePath = await AsyncStorage.getItem(storageKey);
+
+            if (savedImagePath) {
+              const imageUrl = savedImagePath.startsWith("http")
+                ? savedImagePath
+                : `http://seal-app-doaaw.ondigitalocean.app/${savedImagePath}`;
+              return {
+                ...lovedOne,
+                profileImage: imageUrl,
+              };
+            }
+            return lovedOne;
+          })
+        );
+
+        // Update the cache with the loaded images
+        queryClient.setQueryData(["lovedOnes"], updatedLovedOnes);
+      }
+    };
+
+    loadLovedOnesImages();
+  }, [data, queryClient]);
+
+  // Add state for loading specific loved one image
+  const [loadingLovedOneId, setLoadingLovedOneId] = useState(null);
+
   // Initial animations with optimized configuration
   useEffect(() => {
     const animConfig = {
@@ -476,11 +698,17 @@ const ProfileScreen = ({ navigation }) => {
   }, [animations]);
 
   const handleLogout = async () => {
-    await logout();
-    navigation.reset({
-      index: 0,
-      routes: [{ name: "Main" }],
-    });
+    try {
+      await clearUserData(); // Clear both token and profile image
+      await logout();
+      navigation.reset({
+        index: 0,
+        routes: [{ name: "Main" }],
+      });
+    } catch (error) {
+      console.error("Error during logout:", error);
+      Alert.alert("Error", "Failed to logout. Please try again.");
+    }
   };
 
   return (
@@ -517,18 +745,22 @@ const ProfileScreen = ({ navigation }) => {
                   <Image
                     source={{ uri: profileImage }}
                     style={styles.profileImageStyle}
+                    onError={(error) => {
+                      console.error(
+                        "Image loading error:",
+                        error.nativeEvent.error
+                      );
+                      Alert.alert("Error", "Failed to load profile image");
+                    }}
+                    resizeMode="cover"
                   />
                 ) : (
                   <Ionicons name="person" size={40} color="white" />
                 )}
               </View>
-              {loading ? (
-                <EditButton loading={true} />
-              ) : (
-                <EditButton loading={false}>
-                  <Ionicons name="camera" size={16} color="white" />
-                </EditButton>
-              )}
+              <EditButton loading={loading}>
+                <Ionicons name="camera" size={16} color="white" />
+              </EditButton>
             </Pressable>
             <Text style={styles.userName}>{user?.name || "User Name"}</Text>
             <Text style={styles.userEmail}>
@@ -579,7 +811,9 @@ const ProfileScreen = ({ navigation }) => {
                     navigation.navigate("LovedOneDetails", { lovedOne })
                   }
                   onDelete={handleDeleteLovedOne}
+                  onImagePick={handleLovedOneImagePick}
                   animValue={animations.lovedOnes}
+                  isLoading={loadingLovedOneId === lovedOne._id}
                 />
               ))
             : !isLoading && (
@@ -666,6 +900,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderWidth: 3,
     borderColor: "white",
+    overflow: "hidden",
   },
   profileImageStyle: {
     width: "100%",
@@ -751,6 +986,7 @@ const styles = StyleSheet.create({
   },
   lovedOneGradient: {
     padding: 16,
+    backgroundColor: "white",
   },
   lovedOneHeader: {
     flexDirection: "row",
@@ -1023,6 +1259,57 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     width: "100%",
+  },
+  lovedOneProfileImage: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 22,
+  },
+  cameraIconOverlay: {
+    position: "absolute",
+    bottom: -4,
+    right: -4,
+    backgroundColor: "rgba(74,144,226,0.9)",
+    borderRadius: 10,
+    width: 20,
+    height: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "white",
+  },
+  iconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#f8f9fa",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+    overflow: "hidden",
+  },
+  lovedOneProfileImageContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#f8f9fa",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+    overflow: "hidden",
+  },
+  lovedOneProfileImageStyle: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 22,
   },
 });
 

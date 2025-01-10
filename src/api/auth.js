@@ -1,4 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Alert } from "react-native";
+import { setProfileImage } from "./storage";
 
 // register function
 const register = async (name, email, password, phone_number) => {
@@ -26,7 +28,7 @@ const register = async (name, email, password, phone_number) => {
     const data = await response.json();
     console.log("Parsed response data:", data); // Log parsed data
 
-    // Save token to AsyncStorage
+    // Save token and user data to AsyncStorage
     if (data.token) {
       await AsyncStorage.setItem("token", data.token);
       console.log("Token saved successfully!");
@@ -73,11 +75,36 @@ const login = async (email, password) => {
       }
     );
     const data = await response.json();
+
+    // Log the response for debugging
+    console.log("Login response:", data);
+
+    // Store the token if it exists
     if (data.token) {
       await AsyncStorage.setItem("token", data.token);
     }
+
+    // Store the profile image path if it exists
+    if (data.user && data.user.profileImage) {
+      const imageUrl = data.user.profileImage.startsWith("http")
+        ? data.user.profileImage
+        : `http://seal-app-doaaw.ondigitalocean.app/${data.user.profileImage}`;
+
+      console.log("Storing profile image URL:", imageUrl);
+
+      // Save the image URL to storage
+      await setProfileImage(imageUrl);
+
+      // Update the user object with the formatted image URL
+      data.user.profileImage = imageUrl;
+
+      // Save the updated user object
+      await AsyncStorage.setItem("user", JSON.stringify(data.user));
+    }
+
     return data;
   } catch (error) {
+    console.error("Login error:", error);
     throw error;
   }
 };

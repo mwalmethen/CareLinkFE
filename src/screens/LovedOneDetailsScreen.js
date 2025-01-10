@@ -8,6 +8,7 @@ import {
   Animated,
   Dimensions,
   Pressable,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -125,16 +126,31 @@ const LovedOneDetailsScreen = ({ route, navigation }) => {
           ]}
         >
           <View style={styles.profileSection}>
-            <LinearGradient
-              colors={["#4A90E2", "#357ABD"]}
-              style={styles.profileIconGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            >
-              <View style={styles.profileIcon}>
-                <Ionicons name="person" size={40} color="white" />
-              </View>
-            </LinearGradient>
+            <View style={styles.profileImageContainer}>
+              {lovedOne.profileImage ? (
+                <Image
+                  source={{ uri: lovedOne.profileImage }}
+                  style={styles.profileImage}
+                  onError={(error) => {
+                    console.error(
+                      "Image loading error:",
+                      error.nativeEvent.error
+                    );
+                  }}
+                />
+              ) : (
+                <LinearGradient
+                  colors={["#4A90E2", "#357ABD"]}
+                  style={styles.profileIconGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                >
+                  <View style={styles.profileIcon}>
+                    <Ionicons name="person" size={40} color="white" />
+                  </View>
+                </LinearGradient>
+              )}
+            </View>
             <Text style={styles.name}>{lovedOne.name}</Text>
           </View>
 
@@ -249,25 +265,43 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 24,
   },
-  profileIconGradient: {
-    padding: 3,
+  profileImageContainer: {
+    width: 120,
+    height: 120,
     borderRadius: 60,
     marginBottom: 16,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+    overflow: "hidden",
   },
-  profileIcon: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: "rgba(255,255,255,0.2)",
+  profileImage: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 60,
+  },
+  profileIconGradient: {
+    width: "100%",
+    height: "100%",
     justifyContent: "center",
     alignItems: "center",
-    borderWidth: 3,
-    borderColor: "white",
+  },
+  profileIcon: {
+    width: "100%",
+    height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
   },
   name: {
     fontSize: 24,
     fontWeight: "700",
     color: "#333",
+    marginTop: 8,
   },
   detailsSection: {
     marginBottom: 24,

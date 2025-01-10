@@ -21,11 +21,11 @@ const getAllLovedOnes = async () => {
 // add loved one
 const addLovedOne = async (lovedOne, token) => {
   const response = await instance.post(
-    "https://seal-app-doaaw.ondigitalocean.app/api/caregivers/add-loved-one",
+    "/api/caregivers/add-loved-one",
     lovedOne,
     {
       headers: {
-        Authorization: `Bearer ${token}`, // Attach the token
+        Authorization: `Bearer ${token}`,
       },
     }
   );
@@ -34,15 +34,15 @@ const addLovedOne = async (lovedOne, token) => {
 
 const deleteLovedOne = async (lovedOneId, token) => {
   try {
-    const response = await axios.delete(
-      `https://seal-app-doaaw.ondigitalocean.app/api/caregivers/loved-one/${lovedOneId}`,
+    const response = await instance.delete(
+      `/api/caregivers/loved-ones/${lovedOneId}`,
       {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       }
     );
-    return response.data;
+    return response;
   } catch (error) {
     console.error(
       "Error deleting loved one:",
@@ -67,8 +67,8 @@ const uploadProfileImage = async (imageUri, token) => {
       type: type,
     });
 
-    const response = await axios.post(
-      "https://seal-app-doaaw.ondigitalocean.app//api/caregivers/upload-profile-image",
+    const response = await instance.post(
+      "/api/caregivers/upload-profile-image",
       formData,
       {
         headers: {
@@ -77,6 +77,18 @@ const uploadProfileImage = async (imageUri, token) => {
         },
       }
     );
+
+    console.log("Raw upload response:", response); // Log the entire response
+    console.log("Upload response data:", response.data); // Log just the data
+
+    // If the response doesn't include caregiver, but has image path directly
+    if (response.data && !response.data.caregiver && response.data.image) {
+      return {
+        caregiver: {
+          profileImage: response.data.image,
+        },
+      };
+    }
 
     return response.data;
   } catch (error) {
@@ -88,4 +100,54 @@ const uploadProfileImage = async (imageUri, token) => {
   }
 };
 
-export { getAllLovedOnes, addLovedOne, deleteLovedOne, uploadProfileImage };
+// upload loved one profile image
+const uploadLovedOneProfileImage = async (lovedOneId, imageUri, token) => {
+  try {
+    // Create form data
+    const formData = new FormData();
+    const filename = imageUri.split("/").pop();
+    const match = /\.(\w+)$/.exec(filename);
+    const type = match ? `image/${match[1]}` : "image";
+
+    formData.append("image", {
+      uri: imageUri,
+      name: filename,
+      type: type,
+    });
+
+    const response = await instance.post(
+      `/api/loved-ones/${lovedOneId}/upload-profile-image`,
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    console.log("Raw upload response:", response); // Log the entire response
+    console.log("Upload response data:", response.data); // Log just the data
+
+    // If the response doesn't include imageUrl, construct it from the response
+    if (response.data && !response.data.imageUrl && response.data.image) {
+      return { imageUrl: response.data.image };
+    }
+
+    return response.data;
+  } catch (error) {
+    console.error(
+      "Error uploading loved one profile image:",
+      error.response?.data || error.message
+    );
+    throw error;
+  }
+};
+
+export {
+  getAllLovedOnes,
+  addLovedOne,
+  deleteLovedOne,
+  uploadProfileImage,
+  uploadLovedOneProfileImage,
+};
