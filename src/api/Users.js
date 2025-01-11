@@ -34,14 +34,11 @@ const addLovedOne = async (lovedOne, token) => {
 
 const deleteLovedOne = async (lovedOneId, token) => {
   try {
-    const response = await instance.delete(
-      `/api/caregivers/loved-ones/${lovedOneId}`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
+    const response = await instance.delete(`/api/loved-ones/${lovedOneId}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
     return response;
   } catch (error) {
     console.error(
@@ -67,6 +64,8 @@ const uploadProfileImage = async (imageUri, token) => {
       type: type,
     });
 
+    console.log("Sending image upload request with formData:", formData);
+
     const response = await instance.post(
       "/api/caregivers/upload-profile-image",
       formData,
@@ -78,24 +77,45 @@ const uploadProfileImage = async (imageUri, token) => {
       }
     );
 
-    console.log("Raw upload response:", response); // Log the entire response
-    console.log("Upload response data:", response.data); // Log just the data
+    console.log("Raw upload response:", JSON.stringify(response, null, 2));
 
-    // If the response doesn't include caregiver, but has image path directly
-    if (response.data && !response.data.caregiver && response.data.image) {
-      return {
-        caregiver: {
-          profileImage: response.data.image,
-        },
-      };
+    // Handle different response formats
+    if (response) {
+      let profileImage = null;
+
+      if (response.caregiver && response.caregiver.profileImage) {
+        profileImage = response.caregiver.profileImage;
+      } else if (response.image) {
+        profileImage = response.image;
+      } else if (typeof response === "string") {
+        profileImage = response;
+      } else if (response.profileImage) {
+        profileImage = response.profileImage;
+      }
+
+      if (profileImage) {
+        // Remove any leading slashes
+        profileImage = profileImage.replace(/^\/+/, "");
+
+        // Ensure the image URL is absolute
+        const imageUrl = profileImage.startsWith("http")
+          ? profileImage
+          : `https://seal-app-doaaw.ondigitalocean.app/uploads/${profileImage}`;
+
+        console.log("Formatted image URL:", imageUrl);
+        return {
+          caregiver: {
+            profileImage: imageUrl,
+          },
+        };
+      }
     }
 
-    return response.data;
+    console.error("Unexpected response format:", response);
+    throw new Error("Invalid response format from server");
   } catch (error) {
-    console.error(
-      "Error uploading profile image:",
-      error.response?.data || error.message
-    );
+    console.error("Error uploading profile image:", error);
+    console.error("Error response data:", error.response?.data);
     throw error;
   }
 };

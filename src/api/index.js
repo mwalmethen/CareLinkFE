@@ -1,12 +1,20 @@
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+
 const instance = axios.create({
   baseURL: "https://seal-app-doaaw.ondigitalocean.app",
+  headers: {
+    Accept: "application/json",
+    "Content-Type": "application/json",
+  },
 });
 
 // Handle response interceptor
 instance.interceptors.response.use(
-  (response) => response.data,
+  (response) => {
+    console.log(`Response from ${response.config.url}:`, response.data);
+    return response.data;
+  },
   (error) => {
     console.error("API Error:", error.response?.data || error.message);
     return Promise.reject(error);
@@ -21,6 +29,7 @@ instance.interceptors.request.use(
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
       }
+      console.log(`Request to ${config.url}:`, config);
     } catch (error) {
       console.error("Failed to fetch token", error);
     }

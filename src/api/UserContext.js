@@ -55,7 +55,12 @@ export const UserProvider = ({ children }) => {
   const formatImageUrl = (imageUrl) => {
     if (!imageUrl) return null;
     if (imageUrl.startsWith("http")) return imageUrl;
-    return `http://seal-app-doaaw.ondigitalocean.app/${imageUrl}`;
+
+    // Remove any leading slashes
+    const cleanPath = imageUrl.replace(/^\/+/, "");
+
+    // Ensure we include the uploads directory
+    return `https://seal-app-doaaw.ondigitalocean.app/uploads/${cleanPath}`;
   };
 
   // Save user and token in AsyncStorage
@@ -71,20 +76,26 @@ export const UserProvider = ({ children }) => {
         formattedUser.profileImage
       );
 
-      // Save to AsyncStorage
-      await AsyncStorage.setItem("user", JSON.stringify(formattedUser));
-      await AsyncStorage.setItem("token", authToken);
-
-      // Save profile image separately
+      // Save profile image first
       if (formattedUser.profileImage) {
+        console.log("Saving profile image to storage");
         await saveProfileImageToStorage(formattedUser.profileImage);
       }
 
-      // Update state
+      // Then save user data
+      console.log("Saving user data to AsyncStorage");
+      await AsyncStorage.setItem("user", JSON.stringify(formattedUser));
+      await AsyncStorage.setItem("token", authToken);
+
+      // Update state last
+      console.log("Updating state");
       setUser(formattedUser);
       setToken(authToken);
+
+      console.log("User data saved successfully");
     } catch (error) {
-      console.error("Failed to save user data", error);
+      console.error("Failed to save user data:", error);
+      throw error;
     }
   };
 
@@ -101,18 +112,24 @@ export const UserProvider = ({ children }) => {
         formattedUser.profileImage
       );
 
-      // Save to AsyncStorage
-      await AsyncStorage.setItem("user", JSON.stringify(formattedUser));
-
-      // Save profile image separately
+      // Save profile image first
       if (formattedUser.profileImage) {
+        console.log("Saving profile image to storage");
         await saveProfileImageToStorage(formattedUser.profileImage);
       }
 
-      // Update state
+      // Then save user data
+      console.log("Saving user data to AsyncStorage");
+      await AsyncStorage.setItem("user", JSON.stringify(formattedUser));
+
+      // Update state last
+      console.log("Updating state");
       setUser(formattedUser);
+
+      console.log("User data updated successfully");
     } catch (error) {
-      console.error("Failed to update user data", error);
+      console.error("Failed to update user data:", error);
+      throw error;
     }
   };
 

@@ -53,15 +53,50 @@ const MenuButton = memo(({ icon, text, onPress }) => (
   </TouchableOpacity>
 ));
 
+// Custom Image component with authentication
+const AuthImage = ({ source, style, onError }) => {
+  const { token } = useUser();
+  const [imageUri, setImageUri] = useState(null);
+
+  useEffect(() => {
+    const fetchImage = async () => {
+      try {
+        const response = await fetch(source.uri, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        if (response.ok) {
+          setImageUri(source.uri);
+        } else {
+          onError &&
+            onError({ nativeEvent: { error: "Failed to load image" } });
+        }
+      } catch (error) {
+        onError && onError({ nativeEvent: { error: error.message } });
+      }
+    };
+
+    fetchImage();
+  }, [source.uri, token]);
+
+  if (!imageUri) {
+    return <Ionicons name="person" size={style.width / 2.5} color="#4A90E2" />;
+  }
+
+  return <Image source={{ uri: imageUri }} style={style} onError={onError} />;
+};
+
 const LovedOneCard = memo(
   ({ lovedOne, onPress, onDelete, animValue, onImagePick, isLoading }) => {
     const imageUrl = lovedOne.profileImage?.startsWith("http")
       ? lovedOne.profileImage
       : lovedOne.profileImage
-      ? `http://seal-app-doaaw.ondigitalocean.app/${lovedOne.profileImage}`
+      ? `https://seal-app-doaaw.ondigitalocean.app/uploads/${lovedOne.profileImage.replace(
+          /^\/+/,
+          ""
+        )}`
       : null;
-
-    console.log("Loading loved one image:", imageUrl);
 
     return (
       <Animated.View
@@ -95,15 +130,10 @@ const LovedOneCard = memo(
               >
                 <View style={styles.lovedOneProfileImageContainer}>
                   {imageUrl ? (
-                    <Image
+                    <AuthImage
                       source={{ uri: imageUrl }}
                       style={styles.lovedOneProfileImageStyle}
-                      onError={(error) => {
-                        console.error(
-                          "Image loading error:",
-                          error.nativeEvent.error
-                        );
-                      }}
+                      onError={() => {}}
                     />
                   ) : (
                     <Ionicons name="person" size={30} color="#4A90E2" />
@@ -432,7 +462,7 @@ const ProfileScreen = ({ navigation }) => {
       if (!result.canceled) {
         setLoading(true);
         try {
-          console.log("Uploading new image...");
+          console.log("Selected image:", result.assets[0].uri);
           const response = await uploadProfileImage(
             result.assets[0].uri,
             token
@@ -443,39 +473,41 @@ const ProfileScreen = ({ navigation }) => {
           );
 
           if (response.caregiver && response.caregiver.profileImage) {
-            const imagePath = response.caregiver.profileImage;
-            console.log("New image path:", imagePath);
+            const imageUrl = response.caregiver.profileImage; // URL is already formatted in uploadProfileImage
+            console.log("Using image URL:", imageUrl);
 
-            // Format the image URL
-            const imageUrl = imagePath.startsWith("http")
-              ? imagePath
-              : `http://seal-app-doaaw.ondigitalocean.app/${imagePath}`;
+            try {
+              // Save to storage first
+              console.log("Saving to storage:", imageUrl);
+              await setProfileImage(imageUrl);
 
-            console.log("Formatted image URL:", imageUrl);
+              // Update user data
+              const updatedUser = {
+                ...user,
+                profileImage: imageUrl,
+              };
+              console.log("Updating user data:", updatedUser);
 
-            // First save to storage
-            await setProfileImage(imageUrl);
-            console.log("Saved image URL to storage");
+              // Save to AsyncStorage
+              await AsyncStorage.setItem("user", JSON.stringify(updatedUser));
+              console.log("Saved to AsyncStorage");
 
-            // Update user context
-            const updatedUser = {
-              ...user,
-              profileImage: imageUrl,
-            };
+              // Update user context
+              await updateUser(updatedUser);
+              console.log("Updated user context");
 
-            // Save to AsyncStorage
-            await AsyncStorage.setItem("user", JSON.stringify(updatedUser));
-            console.log("Saved user data to AsyncStorage");
+              // Update local state last
+              setProfileImage(imageUrl);
+              console.log("Updated local state");
 
-            // Update user context
-            await updateUser(updatedUser);
-            console.log("Updated user context");
-
-            // Update local state last
-            setProfileImage(imageUrl);
-            console.log("Updated local state with new image");
-
-            Alert.alert("Success", "Profile image updated successfully!");
+              Alert.alert("Success", "Profile image updated successfully!");
+            } catch (storageError) {
+              console.error("Error saving image:", storageError);
+              Alert.alert(
+                "Error",
+                "Failed to save profile image. Please try again."
+              );
+            }
           } else {
             console.error("Invalid response format:", response);
             Alert.alert("Error", "Invalid response from server");
@@ -742,17 +774,12 @@ const ProfileScreen = ({ navigation }) => {
             >
               <View style={styles.profileImage}>
                 {profileImage ? (
-                  <Image
+                  <AuthImage
                     source={{ uri: profileImage }}
                     style={styles.profileImageStyle}
-                    onError={(error) => {
-                      console.error(
-                        "Image loading error:",
-                        error.nativeEvent.error
-                      );
+                    onError={() => {
                       Alert.alert("Error", "Failed to load profile image");
                     }}
-                    resizeMode="cover"
                   />
                 ) : (
                   <Ionicons name="person" size={40} color="white" />

@@ -19,6 +19,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getAllLovedOnes } from "../api/Users";
 import { useUser } from "../api/UserContext";
 import { LinearGradient } from "expo-linear-gradient";
+import { createTask } from "../api/CreateTask";
 
 const DropdownSelect = ({ label, value, options = [], onSelect, icon }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -142,34 +143,19 @@ const CreateTaskScreen = ({ navigation }) => {
     }
 
     try {
-      const formattedStartTime = startTime.toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: true,
-      });
+      const combinedDateTime = new Date(date);
+      combinedDateTime.setHours(startTime.getHours());
+      combinedDateTime.setMinutes(startTime.getMinutes());
 
-      const formattedEndTime = endTime.toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: true,
-      });
-
-      const newTask = {
-        id: Date.now(),
+      const taskData = {
         title: title.trim(),
-        description: description.trim(),
-        date: date.getDate().toString(),
-        time: `${formattedStartTime} - ${formattedEndTime}`,
-        startTime: startTime.toISOString(),
-        endTime: endTime.toISOString(),
-        lovedOne: selectedLovedOne,
-        assignedTo: selectedMember.name,
-        completed: false,
-        note: "",
+        loved_one_id: selectedLovedOne._id,
+        assigned_to: "CAREGIVER_ID",
+        due_date: combinedDateTime.toISOString(),
+        category: "MEDICATION",
       };
 
-      const existingTasks = queryClient.getQueryData(["tasks"]) || [];
-      queryClient.setQueryData(["tasks"], [...existingTasks, newTask]);
+      await createTask(selectedLovedOne._id, taskData);
 
       Alert.alert("Success", "Task created successfully!", [
         {
@@ -179,6 +165,7 @@ const CreateTaskScreen = ({ navigation }) => {
       ]);
     } catch (error) {
       Alert.alert("Error", "Failed to create task. Please try again.");
+      console.error("Error creating task:", error);
     }
   };
 
