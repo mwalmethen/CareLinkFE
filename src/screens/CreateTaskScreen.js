@@ -15,7 +15,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { getAllLovedOnes } from "../api/Users";
 import { useUser } from "../api/UserContext";
 import { LinearGradient } from "expo-linear-gradient";
@@ -119,6 +119,50 @@ const CreateTaskScreen = ({ navigation }) => {
     queryFn: getAllLovedOnes,
   });
 
+  // Create task mutation
+  const createMutation = useMutation({
+    mutationFn: ({ lovedOneId, taskData }) => createTask(lovedOneId, taskData),
+    onMutate: async ({ lovedOneId, taskData }) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["tasks", lovedOneId] });
+
+      // Snapshot the previous value
+      const previousTasks = queryClient.getQueryData(["tasks", lovedOneId]);
+
+      // Optimistically update to add the new task
+      queryClient.setQueryData(["tasks", lovedOneId], (old) => {
+        if (!old) return { pending: [taskData], completed: [], total: 1 };
+        return {
+          ...old,
+          pending: [
+            ...(old.pending || []),
+            { ...taskData, _id: Date.now().toString() },
+          ],
+          total: (old.total || 0) + 1,
+        };
+      });
+
+      return { previousTasks };
+    },
+    onError: (err, { lovedOneId }, context) => {
+      // Rollback on error
+      queryClient.setQueryData(["tasks", lovedOneId], context.previousTasks);
+      Alert.alert("Error", "Failed to create task. Please try again.");
+    },
+    onSuccess: () => {
+      Alert.alert("Success", "Task created successfully!", [
+        {
+          text: "OK",
+          onPress: () => navigation.goBack(),
+        },
+      ]);
+    },
+    onSettled: (_, __, { lovedOneId }) => {
+      // Refetch after error or success
+      queryClient.invalidateQueries({ queryKey: ["tasks", lovedOneId] });
+    },
+  });
+
   const familyMembers = [
     { id: 1, name: "Me" },
     { id: 2, name: "Mother" },
@@ -155,16 +199,11 @@ const CreateTaskScreen = ({ navigation }) => {
         category: "MEDICATION",
       };
 
-      await createTask(selectedLovedOne._id, taskData);
-
-      Alert.alert("Success", "Task created successfully!", [
-        {
-          text: "OK",
-          onPress: () => navigation.goBack(),
-        },
-      ]);
+      createMutation.mutate({
+        lovedOneId: selectedLovedOne._id,
+        taskData,
+      });
     } catch (error) {
-      Alert.alert("Error", "Failed to create task. Please try again.");
       console.error("Error creating task:", error);
     }
   };

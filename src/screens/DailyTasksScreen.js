@@ -16,7 +16,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getAllLovedOnes } from "../api/Users";
 import { getTask } from "../api/CreateTask";
 import { useUser } from "../api/UserContext";
@@ -27,53 +27,33 @@ const { width } = Dimensions.get("window");
 const DailyTasksScreen = ({ navigation }) => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [selectedLovedOne, setSelectedLovedOne] = useState(null);
-  const [tasks, setTasks] = useState({ pending: [], completed: [], total: 0 });
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(null);
   const { token } = useUser();
+  const queryClient = useQueryClient();
 
   const { data: lovedOnes = [] } = useQuery({
     queryKey: ["lovedOnes"],
     queryFn: getAllLovedOnes,
   });
 
+  const {
+    data: tasks = { pending: [], completed: [], total: 0 },
+    isLoading,
+    error,
+  } = useQuery({
+    queryKey: ["tasks", selectedLovedOne?._id],
+    queryFn: () => getTask(selectedLovedOne._id),
+    enabled: !!selectedLovedOne?._id,
+  });
+
   useEffect(() => {
     if (selectedLovedOne) {
-      fetchTasks();
+      // Prefetch tasks when loved one is selected
+      queryClient.prefetchQuery({
+        queryKey: ["tasks", selectedLovedOne._id],
+        queryFn: () => getTask(selectedLovedOne._id),
+      });
     }
   }, [selectedLovedOne]);
-
-  const fetchTasks = async () => {
-    if (!selectedLovedOne?._id) {
-      console.log("No loved one selected");
-      return;
-    }
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      console.log("Fetching tasks for loved one:", selectedLovedOne._id);
-      const response = await getTask(selectedLovedOne._id);
-      console.log("Tasks response received:", response);
-
-      if (!response) {
-        throw new Error("No response received");
-      }
-
-      setTasks({
-        pending: response.pending || [],
-        completed: response.completed || [],
-        total: response.total || 0,
-      });
-    } catch (error) {
-      console.error("Error fetching tasks:", error);
-      setError(error.message);
-      setTasks({ pending: [], completed: [], total: 0 });
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const renderTaskItem = (task) => (
     <Pressable
@@ -187,7 +167,7 @@ const DailyTasksScreen = ({ navigation }) => {
           ) : error ? (
             <View style={styles.noTasksContainer}>
               <Text style={[styles.noTasksText, styles.errorText]}>
-                {error}
+                {error.message}
               </Text>
             </View>
           ) : tasks.pending.length > 0 || tasks.completed.length > 0 ? (

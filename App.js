@@ -19,6 +19,7 @@ import ProfileScreen from "./src/screens/ProfileScreen";
 import EmergencyButton from "./src/screens/EmergencyButton";
 import LovedOneDetailsScreen from "./src/screens/LovedOneDetailsScreen";
 import TaskDetailsScreen from "./src/screens/TaskDetailsScreen";
+import NoteDetailsScreen from "./src/screens/NoteDetailsScreen";
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -107,6 +108,7 @@ export default function App() {
                 component={LovedOneDetailsScreen}
               />
               <Stack.Screen name="TaskDetails" component={TaskDetailsScreen} />
+              <Stack.Screen name="NoteDetails" component={NoteDetailsScreen} />
             </Stack.Navigator>
           </NavigationContainer>
         </SafeAreaProvider>

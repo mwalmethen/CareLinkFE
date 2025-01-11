@@ -47,4 +47,88 @@ const getTask = async (lovedOneId) => {
   }
 };
 
-export { createTask, getTask };
+const deleteTask = async (taskId) => {
+  try {
+    console.log("Deleting task with ID:", taskId);
+    const response = await instance.delete(`/api/tasks/${taskId}`);
+
+    console.log("Delete response:", response);
+    return response;
+  } catch (error) {
+    console.error("Error deleting task:", {
+      message: error.message,
+      data: error.response?.data,
+      status: error.response?.status,
+    });
+    throw error;
+  }
+};
+
+const createNote = async (lovedOneId, noteData) => {
+  try {
+    console.log("Creating note for loved one ID:", lovedOneId);
+    const response = await instance.post(
+      `/api/daily-notes/loved-one/${lovedOneId}`,
+      noteData
+    );
+    console.log("Note creation response:", response.data);
+    return response.data;
+  } catch (error) {
+    console.error(
+      "Error creating note:",
+      error.response?.data || error.message
+    );
+    throw error;
+  }
+};
+
+const getNote = async (lovedOneId) => {
+  try {
+    console.log("Fetching notes for loved one ID:", lovedOneId);
+    const response = await instance.get(
+      `/api/daily-notes/loved-one/${lovedOneId}`
+    );
+
+    console.log("Raw notes response:", response);
+
+    if (!response || !Array.isArray(response)) {
+      console.error("Invalid notes response:", response);
+      throw new Error("Invalid notes response from server");
+    }
+
+    // Sort notes by date in descending order
+    const sortedNotes = response.sort(
+      (a, b) => new Date(b.date) - new Date(a.date)
+    );
+
+    return sortedNotes;
+  } catch (error) {
+    console.error("Error fetching notes:", {
+      message: error.message,
+      data: error.response?.data,
+      status: error.response?.status,
+      lovedOneId,
+    });
+    throw error;
+  }
+};
+
+const deleteNote = async (lovedOneId, noteId) => {
+  try {
+    console.log("Deleting note:", { lovedOneId, noteId });
+    const response = await instance.delete(
+      `/api/daily-notes/loved-one/${lovedOneId}/note/${noteId}`
+    );
+    console.log("Delete note response:", response);
+    return response;
+  } catch (error) {
+    console.error("Error deleting note:", {
+      message: error.message,
+      data: error.response?.data,
+      status: error.response?.status,
+    });
+    throw error;
+  }
+};
+
+export { createTask, getTask, deleteTask, createNote, getNote, deleteNote };
