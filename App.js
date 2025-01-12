@@ -12,7 +12,6 @@ import MainScreen from "./src/screens/MainScreen";
 import LoginScreen from "./src/screens/LoginScreen";
 import RegisterScreen from "./src/screens/RegisterScreen";
 import DailyTasksScreen from "./src/screens/DailyTasksScreen";
-import GenerateReportScreen from "./src/screens/GenerateReportScreen";
 import HealthMonitoringScreen from "./src/screens/HealthMonitoringScreen";
 import CreateTaskScreen from "./src/screens/CreateTaskScreen";
 import ProfileScreen from "./src/screens/ProfileScreen";
@@ -22,6 +21,8 @@ import TaskDetailsScreen from "./src/screens/TaskDetailsScreen";
 import NoteDetailsScreen from "./src/screens/NoteDetailsScreen";
 import EditProfileScreen from "./src/screens/EditProfileScreen";
 import MedicalHistoryScreen from "./src/screens/MedicalHistoryScreen";
+import HealthScreen from "./src/screens/HealthScreen";
+import MedicationForm from "./src/screens/Medication";
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -36,8 +37,8 @@ function MainTabs() {
 
           if (route.name === "DailyTasks") {
             iconName = focused ? "calendar" : "calendar-outline";
-          } else if (route.name === "GenerateReport") {
-            iconName = focused ? "document-text" : "document-text-outline";
+          } else if (route.name === "Health") {
+            iconName = focused ? "heart" : "heart-outline";
           } else if (route.name === "Emergency Button") {
             iconName = focused ? "alert-circle" : "alert-circle-outline";
           } else if (route.name === "Profile") {
@@ -59,10 +60,10 @@ function MainTabs() {
         }}
       />
       <Tab.Screen
-        name="GenerateReport"
-        component={GenerateReportScreen}
+        name="Health"
+        component={HealthScreen}
         options={{
-          title: "Generate Report",
+          title: "Health",
         }}
       />
       <Tab.Screen
@@ -114,6 +115,7 @@ export default function App() {
                 name="MedicalHistory"
                 component={MedicalHistoryScreen}
               />
+              <Stack.Screen name="MedicationForm" component={MedicationForm} />
             </Stack.Navigator>
           </NavigationContainer>
         </SafeAreaProvider>
