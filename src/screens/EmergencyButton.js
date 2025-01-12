@@ -18,6 +18,7 @@ import DropDownPicker from "react-native-dropdown-picker";
 import { useUser } from "../api/UserContext";
 import { getAllLovedOnes } from "../api/Users";
 import { useQuery } from "@tanstack/react-query";
+import { useNavigation } from "@react-navigation/native";
 
 const EmergencyButton = ({ navigation }) => {
   const [lovedOne, setLovedOne] = useState("");
@@ -63,6 +64,10 @@ const EmergencyButton = ({ navigation }) => {
       description: description,
     };
     console.log(emergencyRequest);
+  };
+
+  const navigateToMedicationForm = () => {
+    navigation.navigate("MedicationForm");
   };
 
   return (
@@ -167,6 +172,13 @@ const EmergencyButton = ({ navigation }) => {
           >
             <Ionicons name="warning" size={24} color="white" />
             <Text style={styles.submitButtonText}>Send Emergency Request</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.submitButton}
+            onPress={navigateToMedicationForm}
+          >
+            <Ionicons name="medkit" size={24} color="white" />
+            <Text style={styles.submitButtonText}>Go to Medication Form</Text>
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>

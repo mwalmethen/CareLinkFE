@@ -26,14 +26,19 @@
     "expo-status-bar": "~2.0.0",
     "jwt-decode": "^4.0.0",
     "react": "18.3.1",
+    "react-hook-form": "^7.54.2",
     "react-native": "0.76.5",
     "react-native-chart-kit": "^6.12.0",
     "react-native-dropdown-picker": "^5.4.6",
     "react-native-gesture-handler": "^2.21.2",
     "react-native-pager-view": "^6.6.1",
     "react-native-safe-area-context": "^5.0.0",
+<<<<<<< HEAD
     "react-native-screens": "^4.4.0",
     "react-native-tab-view": "^4.0.5"
+=======
+    "react-native-screens": "^4.4.0"
+>>>>>>> 6a28be5ea20cff9e4c6d472bd4af38a0352cae6f
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",

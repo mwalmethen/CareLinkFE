@@ -21,6 +21,7 @@ import TaskDetailsScreen from "./src/screens/TaskDetailsScreen";
 import NoteDetailsScreen from "./src/screens/NoteDetailsScreen";
 import EditProfileScreen from "./src/screens/EditProfileScreen";
 import HealthScreen from "./src/screens/HealthScreen";
+import MedicationForm from "./src/screens/Medication";
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -109,6 +110,7 @@ export default function App() {
               <Stack.Screen name="TaskDetails" component={TaskDetailsScreen} />
               <Stack.Screen name="NoteDetails" component={NoteDetailsScreen} />
               <Stack.Screen name="EditProfile" component={EditProfileScreen} />
+              <Stack.Screen name="MedicationForm" component={MedicationForm} />
             </Stack.Navigator>
           </NavigationContainer>
         </SafeAreaProvider>
