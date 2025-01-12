@@ -37,9 +37,7 @@ function MainTabs() {
             iconName = focused ? "calendar" : "calendar-outline";
           } else if (route.name === "GenerateReport") {
             iconName = focused ? "document-text" : "document-text-outline";
-          } else if (route.name === "HealthMonitoring") {
-            iconName = focused ? "pulse" : "pulse-outline";
-          } else if (route.name === "Emergency") {
+          } else if (route.name === "Emergency Button") {
             iconName = focused ? "alert-circle" : "alert-circle-outline";
           } else if (route.name === "Profile") {
             iconName = focused ? "person" : "person-outline";
@@ -67,10 +65,10 @@ function MainTabs() {
         }}
       />
       <Tab.Screen
-        name="HealthMonitoring"
-        component={HealthMonitoringScreen}
+        name="Emergency Button"
+        component={EmergencyButton}
         options={{
-          title: "Health Monitoring",
+          title: "Emergency Alert",
         }}
       />
       <Tab.Screen
