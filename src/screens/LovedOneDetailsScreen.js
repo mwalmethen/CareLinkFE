@@ -18,6 +18,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { getLovedOneCaregivers, inviteCaregiver } from "../api/Users";
+import { useQuery } from "@tanstack/react-query";
+import { getTask } from "../api/CreateTask";
 
 const { width } = Dimensions.get("window");
 
@@ -131,6 +133,13 @@ const LovedOneDetailsScreen = ({ route, navigation }) => {
   const [inviteEmail, setInviteEmail] = useState("");
   const [isInviting, setIsInviting] = useState(false);
 
+  // Add task query
+  const { data: tasks = { pending: [], completed: [], total: 0 } } = useQuery({
+    queryKey: ["tasks", lovedOne._id],
+    queryFn: () => getTask(lovedOne._id),
+    enabled: !!lovedOne._id,
+  });
+
   const fetchCaregivers = async () => {
     try {
       setIsLoadingCaregivers(true);
@@ -180,7 +189,7 @@ const LovedOneDetailsScreen = ({ route, navigation }) => {
   };
 
   const handleEditLovedOne = () => {
-    navigation.navigate("EditLovedOne", { lovedOne });
+    navigation.navigate("MedicalHistory", { lovedOne });
   };
 
   const handleViewTasks = () => {
@@ -294,7 +303,7 @@ const LovedOneDetailsScreen = ({ route, navigation }) => {
           <View style={styles.statsContainer}>
             <View style={styles.statItem}>
               <Text style={styles.statValue}>
-                {lovedOne.tasks?.length || 0}
+                {tasks.pending.length + tasks.completed.length}
               </Text>
               <Text style={styles.statLabel}>Tasks</Text>
             </View>
@@ -305,7 +314,16 @@ const LovedOneDetailsScreen = ({ route, navigation }) => {
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
-              <Text style={styles.statValue}>85%</Text>
+              <Text style={styles.statValue}>
+                {tasks.completed.length > 0
+                  ? Math.round(
+                      (tasks.completed.length /
+                        (tasks.pending.length + tasks.completed.length)) *
+                        100
+                    )
+                  : 0}
+                %
+              </Text>
               <Text style={styles.statLabel}>Completion</Text>
             </View>
           </View>
@@ -354,7 +372,7 @@ const LovedOneDetailsScreen = ({ route, navigation }) => {
             <View style={styles.secondaryActions}>
               <ActionButton
                 icon="create-outline"
-                text="Edit Details"
+                text="Health"
                 onPress={handleEditLovedOne}
                 colors={["#34A853", "#2E8B4A"]}
                 style={styles.secondaryAction}

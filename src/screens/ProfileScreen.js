@@ -92,6 +92,9 @@ const AuthImage = ({ source, style, onError }) => {
 
 const LovedOneCard = memo(
   ({ lovedOne, onPress, onDelete, animValue, onImagePick, isLoading }) => {
+    const { user } = useUser();
+    const isShared = lovedOne.caregivers?.[0] !== user?._id;
+
     const imageUrl = lovedOne.profileImage?.startsWith("http")
       ? lovedOne.profileImage
       : lovedOne.profileImage
@@ -100,6 +103,13 @@ const LovedOneCard = memo(
           ""
         )}`
       : null;
+
+    console.log(`Task count for ${lovedOne.name}:`, {
+      tasks: lovedOne.tasks,
+      total: lovedOne.tasks?.total || 0,
+      pending: lovedOne.tasks?.pending?.length || 0,
+      completed: lovedOne.tasks?.completed?.length || 0,
+    });
 
     return (
       <Animated.View
@@ -125,68 +135,121 @@ const LovedOneCard = memo(
           ]}
           onPress={onPress}
         >
-          <View style={styles.lovedOneGradient}>
+          <View
+            style={[
+              styles.lovedOneGradient,
+              isShared && styles.sharedLovedOneGradient,
+            ]}
+          >
             <View style={styles.lovedOneHeader}>
-              <Pressable
-                style={styles.lovedOneIconContainer}
-                onPress={() => onImagePick(lovedOne._id)}
-              >
-                <View style={styles.lovedOneProfileImageContainer}>
+              <View style={styles.lovedOneIconContainer}>
+                <View
+                  style={[
+                    styles.iconContainer,
+                    isShared && styles.sharedIconContainer,
+                  ]}
+                >
                   {imageUrl ? (
-                    <AuthImage
+                    <Image
                       source={{ uri: imageUrl }}
                       style={styles.lovedOneProfileImageStyle}
-                      onError={() => {}}
+                      resizeMode="cover"
                     />
                   ) : (
-                    <Ionicons name="person" size={30} color="#4A90E2" />
+                    <Ionicons name="person" size={24} color="#4A90E2" />
+                  )}
+                  <Pressable
+                    style={styles.cameraIconOverlay}
+                    onPress={() => onImagePick(lovedOne._id)}
+                  >
+                    <Ionicons name="camera" size={12} color="white" />
+                  </Pressable>
+                </View>
+              </View>
+              <View style={styles.lovedOneInfo}>
+                <View style={styles.nameContainer}>
+                  <Text style={styles.lovedOneName}>{lovedOne.name}</Text>
+                  {lovedOne.caregivers?.length >= 2 && (
+                    <View style={styles.multiCaregiversBadge}>
+                      <Ionicons name="people" size={14} color="#4A90E2" />
+                    </View>
                   )}
                 </View>
-              </Pressable>
-              <View style={styles.lovedOneInfo}>
-                <Text style={styles.lovedOneName}>{lovedOne.name}</Text>
                 <View style={styles.ageContainer}>
                   <Ionicons name="calendar-outline" size={14} color="#666" />
-                  <Text style={styles.lovedOneAge}>Age: {lovedOne.age}</Text>
+                  <Text style={styles.lovedOneAge}>
+                    {lovedOne.age} years old
+                  </Text>
                 </View>
+                {lovedOne.caregivers &&
+                  lovedOne.caregivers.length > 0 &&
+                  lovedOne.caregivers[0]._id !== user?._id && (
+                    <View
+                      style={[
+                        styles.sharedBadge,
+                        { backgroundColor: "#4A90E2" },
+                      ]}
+                    >
+                      <Ionicons
+                        name="people-outline"
+                        size={12}
+                        color="#FFFFFF"
+                      />
+                      <Text
+                        style={[styles.sharedBadgeText, { color: "#FFFFFF" }]}
+                      >
+                        Shared with you
+                      </Text>
+                    </View>
+                  )}
               </View>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.deleteButton,
-                  pressed && styles.deletePressed,
-                ]}
-                onPress={() => onDelete(lovedOne._id)}
-              >
-                <View style={styles.deleteButtonInner}>
-                  <Ionicons name="trash-outline" size={16} color="#EA4335" />
-                </View>
-              </Pressable>
+              {!isShared && (
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.deleteButton,
+                    pressed && styles.deletePressed,
+                  ]}
+                  onPress={() => onDelete(lovedOne._id)}
+                >
+                  <View style={styles.deleteButtonInner}>
+                    <Ionicons name="trash-outline" size={20} color="#EA4335" />
+                  </View>
+                </Pressable>
+              )}
             </View>
 
-            <View style={styles.medicalHistoryContainer}>
-              <View style={styles.medicalHistoryHeader}>
-                <Ionicons name="medical-outline" size={16} color="#4A90E2" />
-                <Text style={styles.medicalHistoryLabel}>Medical History</Text>
+            {lovedOne.medical_history && (
+              <View style={styles.medicalHistoryContainer}>
+                <View style={styles.medicalHistoryHeader}>
+                  <Ionicons name="medical-outline" size={16} color="#4A90E2" />
+                  <Text style={styles.medicalHistoryLabel}>
+                    Medical History
+                  </Text>
+                </View>
+                <Text style={styles.medicalHistoryText}>
+                  {lovedOne.medical_history}
+                </Text>
               </View>
-              <Text style={styles.medicalHistoryText} numberOfLines={2}>
-                {lovedOne.medical_history}
-              </Text>
-            </View>
+            )}
 
             <View style={styles.cardFooter}>
               <View style={styles.footerInfo}>
                 <View style={styles.taskCount}>
-                  <Ionicons name="list-outline" size={14} color="#34A853" />
-                  <Text style={styles.taskCountText}>12 Tasks</Text>
+                  <Ionicons name="list-outline" size={24} color="#4A90E2" />
+                  <Text style={styles.taskCountText}>
+                    {lovedOne.tasks?.total || 0} Tasks
+                  </Text>
                 </View>
                 <View style={styles.caregiverCount}>
                   <Ionicons name="people-outline" size={14} color="#FBBC05" />
-                  <Text style={styles.caregiverCountText}>3 Caregivers</Text>
+                  <Text style={styles.caregiverCountText}>
+                    {lovedOne.caregivers?.length || 0} Caregivers
+                  </Text>
                 </View>
               </View>
               <View style={styles.viewDetailsButton}>
                 <Text style={styles.viewDetailsText}>View Details</Text>
-                <Ionicons name="chevron-forward" size={14} color="#4A90E2" />
+                <Ionicons name="chevron-forward" size={16} color="#4A90E2" />
               </View>
             </View>
           </View>
@@ -381,6 +444,11 @@ const ProfileScreen = ({ navigation }) => {
   const [isLoadingInvitations, setIsLoadingInvitations] = useState(false);
   const [invitations, setInvitations] = useState([]);
 
+  // Add this useEffect to debug user context
+  useEffect(() => {
+    console.log("User Context:", user);
+  }, [user]);
+
   // Load profile image when component mounts and when user changes
   useEffect(() => {
     const loadProfileImage = async () => {
@@ -434,8 +502,15 @@ const ProfileScreen = ({ navigation }) => {
   const { data, isLoading, error } = useQuery({
     queryKey: ["lovedOnes"],
     queryFn: getAllLovedOnes,
-    enabled: true,
+    refetchOnMount: true,
   });
+
+  // Add this effect to refetch loved ones data when focusing the screen
+  useFocusEffect(
+    useCallback(() => {
+      queryClient.invalidateQueries(["lovedOnes"]);
+    }, [queryClient])
+  );
 
   // Optimized animation values using useRef
   const animations = useRef({
@@ -560,13 +635,29 @@ const ProfileScreen = ({ navigation }) => {
     [token, queryClient]
   );
 
-  const handleDeleteLovedOne = useCallback(
-    (lovedOneId) => {
+  const handleDeleteLovedOne = async (lovedOneId) => {
+    try {
+      const lovedOne = data.find((item) => item._id === lovedOneId);
+      if (!lovedOne) return;
+
+      // Check if there is only one caregiver
+      if (lovedOne.caregivers?.length !== 1) {
+        Alert.alert(
+          "Permission Denied",
+          "You can only delete a loved one when there is exactly one caregiver.",
+          [{ text: "OK", style: "default" }]
+        );
+        return;
+      }
+
       Alert.alert(
         "Delete Loved One",
         "Are you sure you want to delete this loved one?",
         [
-          { text: "Cancel", style: "cancel" },
+          {
+            text: "Cancel",
+            style: "cancel",
+          },
           {
             text: "Delete",
             style: "destructive",
@@ -576,18 +667,21 @@ const ProfileScreen = ({ navigation }) => {
                 queryClient.invalidateQueries(["lovedOnes"]);
                 Alert.alert("Success", "Loved one deleted successfully");
               } catch (error) {
+                console.error("Error deleting loved one:", error);
                 Alert.alert(
                   "Error",
-                  error.response?.data?.message || "Failed to delete loved one"
+                  "Failed to delete loved one. Please try again."
                 );
               }
             },
           },
         ]
       );
-    },
-    [token, queryClient]
-  );
+    } catch (error) {
+      console.error("Error in handleDeleteLovedOne:", error);
+      Alert.alert("Error", "An unexpected error occurred. Please try again.");
+    }
+  };
 
   const handleLovedOneImagePick = useCallback(
     async (lovedOneId) => {
@@ -771,9 +865,8 @@ const ProfileScreen = ({ navigation }) => {
   const handleApproveInvitation = async (invitationId) => {
     try {
       await acceptInvitation(invitationId);
-      // Refresh the invitations list
-      fetchInvitations();
-      // Show success message
+      await fetchInvitations();
+      queryClient.invalidateQueries(["lovedOnes"]);
       Alert.alert(
         "Success",
         "Invitation accepted successfully! You can now manage tasks for this loved one.",
@@ -781,10 +874,7 @@ const ProfileScreen = ({ navigation }) => {
       );
     } catch (error) {
       console.error("Error accepting invitation:", error);
-      Alert.alert(
-        "Error",
-        error.message || "Failed to accept invitation. Please try again."
-      );
+      Alert.alert("Error", "Failed to accept invitation");
     }
   };
 
@@ -919,136 +1009,165 @@ const ProfileScreen = ({ navigation }) => {
               <Text style={styles.errorText}>Failed to load loved ones.</Text>
             )}
             {!isLoading && !error && data?.length > 0
-              ? data.map((lovedOne) => (
-                  <View key={lovedOne._id} style={styles.lovedOneItem}>
-                    <Pressable
-                      style={({ pressed }) => [
-                        styles.lovedOneContent,
-                        pressed && styles.pressed,
-                      ]}
-                      onPress={() =>
-                        navigation.navigate("LovedOneDetails", { lovedOne })
-                      }
-                    >
-                      <View style={styles.lovedOneGradient}>
-                        <View style={styles.lovedOneHeader}>
-                          <View style={styles.lovedOneIconContainer}>
-                            <View style={styles.iconContainer}>
-                              {lovedOne.profileImage ? (
-                                <Image
-                                  source={{ uri: lovedOne.profileImage }}
-                                  style={styles.lovedOneProfileImageStyle}
-                                  resizeMode="cover"
-                                />
-                              ) : (
+              ? data.map((lovedOne) => {
+                  console.log("Loved One:", lovedOne.name);
+                  console.log("First Caregiver ID:", lovedOne.caregivers?.[0]);
+                  console.log("Current User ID:", user?._id);
+
+                  // Only show shared badge if we have both user ID and caregivers
+                  const isShared =
+                    user?._id &&
+                    lovedOne.caregivers?.length > 0 &&
+                    lovedOne.caregivers[0] !== user._id;
+
+                  console.log("Is Shared:", isShared);
+
+                  return (
+                    <View key={lovedOne._id} style={styles.lovedOneItem}>
+                      <Pressable
+                        style={({ pressed }) => [
+                          styles.lovedOneContent,
+                          pressed && styles.pressed,
+                        ]}
+                        onPress={() =>
+                          navigation.navigate("LovedOneDetails", { lovedOne })
+                        }
+                      >
+                        <View style={styles.lovedOneGradient}>
+                          <View style={styles.lovedOneHeader}>
+                            <View style={styles.lovedOneIconContainer}>
+                              <View style={styles.iconContainer}>
+                                {lovedOne.profileImage ? (
+                                  <Image
+                                    source={{ uri: lovedOne.profileImage }}
+                                    style={styles.lovedOneProfileImageStyle}
+                                    resizeMode="cover"
+                                  />
+                                ) : (
+                                  <Ionicons
+                                    name="person"
+                                    size={24}
+                                    color="#4A90E2"
+                                  />
+                                )}
+                              </View>
+                            </View>
+                            <View style={styles.lovedOneInfo}>
+                              <View style={styles.nameContainer}>
+                                <Text style={styles.lovedOneName}>
+                                  {lovedOne.name}
+                                </Text>
+                                {lovedOne.caregivers?.length >= 2 && (
+                                  <View style={styles.multiCaregiversBadge}>
+                                    <Ionicons
+                                      name="people"
+                                      size={14}
+                                      color="#4A90E2"
+                                    />
+                                  </View>
+                                )}
+                              </View>
+                              <View style={styles.ageContainer}>
                                 <Ionicons
-                                  name="person"
+                                  name="calendar-outline"
+                                  size={14}
+                                  color="#666"
+                                />
+                                <Text style={styles.lovedOneAge}>
+                                  {lovedOne.age} years old
+                                </Text>
+                              </View>
+                              {isShared && (
+                                <View style={styles.sharedBadge}>
+                                  <Ionicons
+                                    name="people-outline"
+                                    size={12}
+                                    color="#FFFFFF"
+                                  />
+                                  <Text style={styles.sharedBadgeText}>
+                                    Shared with you
+                                  </Text>
+                                </View>
+                              )}
+                            </View>
+                            {!isShared && (
+                              <Pressable
+                                style={({ pressed }) => [
+                                  styles.deleteButton,
+                                  pressed && styles.deletePressed,
+                                ]}
+                                onPress={() =>
+                                  handleDeleteLovedOne(lovedOne._id)
+                                }
+                              >
+                                <View style={styles.deleteButtonInner}>
+                                  <Ionicons
+                                    name="trash-outline"
+                                    size={20}
+                                    color="#EA4335"
+                                  />
+                                </View>
+                              </Pressable>
+                            )}
+                          </View>
+
+                          {lovedOne.medical_history && (
+                            <View style={styles.medicalHistoryContainer}>
+                              <View style={styles.medicalHistoryHeader}>
+                                <Ionicons
+                                  name="medical-outline"
+                                  size={16}
+                                  color="#4A90E2"
+                                />
+                                <Text style={styles.medicalHistoryLabel}>
+                                  Medical History
+                                </Text>
+                              </View>
+                              <Text style={styles.medicalHistoryText}>
+                                {lovedOne.medical_history}
+                              </Text>
+                            </View>
+                          )}
+
+                          <View style={styles.cardFooter}>
+                            <View style={styles.footerInfo}>
+                              <View style={styles.taskCount}>
+                                <Ionicons
+                                  name="list-outline"
                                   size={24}
                                   color="#4A90E2"
                                 />
-                              )}
-                              <Pressable
-                                style={styles.cameraIconOverlay}
-                                onPress={() =>
-                                  handleLovedOneImagePick(lovedOne._id)
-                                }
-                              >
+                                <Text style={styles.taskCountText}>
+                                  {lovedOne.tasks?.total || 0} Tasks
+                                </Text>
+                              </View>
+                              <View style={styles.caregiverCount}>
                                 <Ionicons
-                                  name="camera"
-                                  size={12}
-                                  color="white"
+                                  name="people-outline"
+                                  size={14}
+                                  color="#FBBC05"
                                 />
-                              </Pressable>
+                                <Text style={styles.caregiverCountText}>
+                                  {lovedOne.caregivers?.length || 0} Caregivers
+                                </Text>
+                              </View>
                             </View>
-                          </View>
-                          <View style={styles.lovedOneInfo}>
-                            <Text style={styles.lovedOneName}>
-                              {lovedOne.name}
-                            </Text>
-                            <View style={styles.ageContainer}>
-                              <Ionicons
-                                name="calendar-outline"
-                                size={14}
-                                color="#666"
-                              />
-                              <Text style={styles.lovedOneAge}>
-                                {lovedOne.age} years old
+                            <View style={styles.viewDetailsButton}>
+                              <Text style={styles.viewDetailsText}>
+                                View Details
                               </Text>
-                            </View>
-                          </View>
-                          <Pressable
-                            style={({ pressed }) => [
-                              styles.deleteButton,
-                              pressed && styles.deletePressed,
-                            ]}
-                            onPress={() => handleDeleteLovedOne(lovedOne._id)}
-                          >
-                            <View style={styles.deleteButtonInner}>
                               <Ionicons
-                                name="trash-outline"
-                                size={20}
-                                color="#EA4335"
-                              />
-                            </View>
-                          </Pressable>
-                        </View>
-
-                        {lovedOne.medical_history && (
-                          <View style={styles.medicalHistoryContainer}>
-                            <View style={styles.medicalHistoryHeader}>
-                              <Ionicons
-                                name="medical-outline"
+                                name="chevron-forward"
                                 size={16}
                                 color="#4A90E2"
                               />
-                              <Text style={styles.medicalHistoryLabel}>
-                                Medical History
-                              </Text>
                             </View>
-                            <Text style={styles.medicalHistoryText}>
-                              {lovedOne.medical_history}
-                            </Text>
-                          </View>
-                        )}
-
-                        <View style={styles.cardFooter}>
-                          <View style={styles.footerInfo}>
-                            <View style={styles.taskCount}>
-                              <Ionicons
-                                name="calendar-outline"
-                                size={14}
-                                color="#34A853"
-                              />
-                              <Text style={styles.taskCountText}>
-                                {lovedOne.tasks?.length || 0} Tasks
-                              </Text>
-                            </View>
-                            <View style={styles.caregiverCount}>
-                              <Ionicons
-                                name="people-outline"
-                                size={14}
-                                color="#FBBC05"
-                              />
-                              <Text style={styles.caregiverCountText}>
-                                {lovedOne.caregivers?.length || 0} Caregivers
-                              </Text>
-                            </View>
-                          </View>
-                          <View style={styles.viewDetailsButton}>
-                            <Text style={styles.viewDetailsText}>
-                              View Details
-                            </Text>
-                            <Ionicons
-                              name="chevron-forward"
-                              size={16}
-                              color="#4A90E2"
-                            />
                           </View>
                         </View>
-                      </View>
-                    </Pressable>
-                  </View>
-                ))
+                      </Pressable>
+                    </View>
+                  );
+                })
               : !isLoading && (
                   <Text style={styles.noDataText}>
                     No loved ones added yet.
@@ -1114,7 +1233,7 @@ const ProfileScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
+    backgroundColor: "#F5F7FA",
   },
   scrollView: {
     flex: 1,
@@ -1295,6 +1414,10 @@ const styles = StyleSheet.create({
   },
   lovedOneGradient: {
     padding: 16,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#E8E8E8",
+    borderRadius: 12,
   },
   lovedOneHeader: {
     flexDirection: "row",
@@ -1362,10 +1485,12 @@ const styles = StyleSheet.create({
     transform: [{ scale: 0.95 }],
   },
   medicalHistoryContainer: {
-    backgroundColor: "#f8f9fa",
+    backgroundColor: "#FFFFFF",
     padding: 12,
     borderRadius: 12,
     marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#E8E8E8",
   },
   medicalHistoryHeader: {
     flexDirection: "row",
@@ -1654,6 +1779,62 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
+  },
+  sharedLovedOneGradient: {
+    backgroundColor: "#EBF8FF",
+    borderWidth: 2,
+    borderColor: "#4A90E2",
+    borderRadius: 12,
+    padding: 16,
+  },
+  sharedIconContainer: {
+    backgroundColor: "#FFFFFF",
+    borderColor: "#4A90E2",
+    borderWidth: 2,
+  },
+  sharedBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#4A90E2",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    marginTop: 8,
+    alignSelf: "flex-start",
+    gap: 6,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+    zIndex: 1,
+  },
+  sharedBadgeText: {
+    fontSize: 13,
+    color: "#FFFFFF",
+    fontWeight: "700",
+    letterSpacing: 0.3,
+  },
+  nameContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 4,
+  },
+  creatorBadge: {
+    backgroundColor: "#FFF7E6",
+    padding: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#FFD700",
+  },
+  multiCaregiversBadge: {
+    backgroundColor: "#E3F2FD",
+    padding: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#4A90E2",
+    marginLeft: 8,
   },
 });
 

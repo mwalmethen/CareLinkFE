@@ -11,7 +11,7 @@
   "dependencies": {
     "@expo/vector-icons": "^14.0.4",
     "@react-native-async-storage/async-storage": "^2.1.0",
-    "@react-native-community/datetimepicker": "8.2.0",
+    "@react-native-community/datetimepicker": "^8.2.0",
     "@react-native-picker/picker": "^2.11.0",
     "@react-navigation/bottom-tabs": "^7.2.0",
     "@react-navigation/native": "^7.0.14",
@@ -25,6 +25,7 @@
     "expo-linear-gradient": "^14.0.1",
     "expo-status-bar": "~2.0.0",
     "jwt-decode": "^4.0.0",
+    "moment": "^2.30.1",
     "react": "18.3.1",
     "react-hook-form": "^7.54.2",
     "react-native": "0.76.5",
@@ -33,12 +34,8 @@
     "react-native-gesture-handler": "^2.21.2",
     "react-native-pager-view": "^6.6.1",
     "react-native-safe-area-context": "^5.0.0",
-<<<<<<< HEAD
     "react-native-screens": "^4.4.0",
     "react-native-tab-view": "^4.0.5"
-=======
-    "react-native-screens": "^4.4.0"
->>>>>>> 6a28be5ea20cff9e4c6d472bd4af38a0352cae6f
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",
