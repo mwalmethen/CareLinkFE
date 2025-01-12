@@ -436,7 +436,7 @@ const TaskDetailsScreen = ({ route, navigation }) => {
               <View style={styles.detailText}>
                 <Text style={styles.detailLabel}>Assigned To</Text>
                 <Text style={styles.detailValue}>
-                  {task.assigned_to || "Not assigned"}
+                  {task.assigned_to?.name || "Not assigned"}
                 </Text>
               </View>
             </View>

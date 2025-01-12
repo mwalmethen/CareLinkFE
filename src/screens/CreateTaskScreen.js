@@ -16,12 +16,20 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
-import { getAllLovedOnes } from "../api/Users";
+import { getAllLovedOnes, getLovedOneCaregivers } from "../api/Users";
 import { useUser } from "../api/UserContext";
 import { LinearGradient } from "expo-linear-gradient";
 import { createTask } from "../api/CreateTask";
 
-const DropdownSelect = ({ label, value, options = [], onSelect, icon }) => {
+const DropdownSelect = ({
+  label,
+  value,
+  options = [],
+  onSelect,
+  icon,
+  disabled,
+  placeholder,
+}) => {
   const [isOpen, setIsOpen] = useState(false);
   const animatedHeight = useRef(new Animated.Value(0)).current;
 
@@ -42,10 +50,11 @@ const DropdownSelect = ({ label, value, options = [], onSelect, icon }) => {
           pressed && styles.pressed,
         ]}
         onPress={() => setIsOpen(!isOpen)}
+        disabled={disabled}
       >
         <Ionicons name={icon} size={20} color="#666" />
         <Text style={styles.dropdownButtonText}>
-          {value?.name || `Select ${label}`}
+          {value?.name || placeholder}
         </Text>
         <Ionicons
           name={isOpen ? "chevron-up" : "chevron-down"}
@@ -111,6 +120,8 @@ const CreateTaskScreen = ({ navigation }) => {
   const [showEndTimePicker, setShowEndTimePicker] = useState(false);
   const [selectedMember, setSelectedMember] = useState(null);
   const [selectedLovedOne, setSelectedLovedOne] = useState(null);
+  const [caregivers, setCaregivers] = useState([]);
+  const [isLoadingCaregivers, setIsLoadingCaregivers] = useState(false);
   const { token } = useUser();
   const queryClient = useQueryClient();
 
@@ -119,17 +130,32 @@ const CreateTaskScreen = ({ navigation }) => {
     queryFn: getAllLovedOnes,
   });
 
+  // Fetch caregivers when a loved one is selected
+  useEffect(() => {
+    const fetchCaregivers = async () => {
+      if (selectedLovedOne) {
+        try {
+          setIsLoadingCaregivers(true);
+          const data = await getLovedOneCaregivers(selectedLovedOne._id);
+          setCaregivers(data || []);
+        } catch (error) {
+          console.error("Error fetching caregivers:", error);
+          Alert.alert("Error", "Failed to fetch caregivers");
+        } finally {
+          setIsLoadingCaregivers(false);
+        }
+      }
+    };
+
+    fetchCaregivers();
+  }, [selectedLovedOne]);
+
   // Create task mutation
   const createMutation = useMutation({
     mutationFn: ({ lovedOneId, taskData }) => createTask(lovedOneId, taskData),
     onMutate: async ({ lovedOneId, taskData }) => {
-      // Cancel any outgoing refetches
       await queryClient.cancelQueries({ queryKey: ["tasks", lovedOneId] });
-
-      // Snapshot the previous value
       const previousTasks = queryClient.getQueryData(["tasks", lovedOneId]);
-
-      // Optimistically update to add the new task
       queryClient.setQueryData(["tasks", lovedOneId], (old) => {
         if (!old) return { pending: [taskData], completed: [], total: 1 };
         return {
@@ -141,11 +167,9 @@ const CreateTaskScreen = ({ navigation }) => {
           total: (old.total || 0) + 1,
         };
       });
-
       return { previousTasks };
     },
     onError: (err, { lovedOneId }, context) => {
-      // Rollback on error
       queryClient.setQueryData(["tasks", lovedOneId], context.previousTasks);
       Alert.alert("Error", "Failed to create task. Please try again.");
     },
@@ -158,17 +182,9 @@ const CreateTaskScreen = ({ navigation }) => {
       ]);
     },
     onSettled: (_, __, { lovedOneId }) => {
-      // Refetch after error or success
       queryClient.invalidateQueries({ queryKey: ["tasks", lovedOneId] });
     },
   });
-
-  const familyMembers = [
-    { id: 1, name: "Me" },
-    { id: 2, name: "Mother" },
-    { id: 3, name: "Father" },
-    { id: 4, name: "Abdullah" },
-  ];
 
   const handleCreateTask = async () => {
     if (!title.trim()) {
@@ -193,8 +209,9 @@ const CreateTaskScreen = ({ navigation }) => {
 
       const taskData = {
         title: title.trim(),
+        description: description.trim(),
         loved_one_id: selectedLovedOne._id,
-        assigned_to: "CAREGIVER_ID",
+        assigned_to: selectedMember._id, // Use the caregiver's ID
         due_date: combinedDateTime.toISOString(),
         category: "MEDICATION",
       };
@@ -315,16 +332,31 @@ const CreateTaskScreen = ({ navigation }) => {
             label="Loved One"
             value={selectedLovedOne}
             options={lovedOnes}
-            onSelect={setSelectedLovedOne}
+            onSelect={(lovedOne) => {
+              setSelectedLovedOne(lovedOne);
+              setSelectedMember(null); // Reset selected caregiver when loved one changes
+            }}
             icon="heart-outline"
           />
 
           <DropdownSelect
             label="Assign To"
             value={selectedMember}
-            options={familyMembers}
+            options={caregivers.map((caregiver) => ({
+              _id: caregiver._id,
+              name: caregiver.user.name,
+              email: caregiver.user.email,
+            }))}
             onSelect={setSelectedMember}
             icon="person-outline"
+            disabled={!selectedLovedOne || isLoadingCaregivers}
+            placeholder={
+              isLoadingCaregivers
+                ? "Loading caregivers..."
+                : !selectedLovedOne
+                ? "Select a loved one first"
+                : "Select caregiver"
+            }
           />
 
           <View style={styles.dateTimeSection}>

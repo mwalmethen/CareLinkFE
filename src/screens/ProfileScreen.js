@@ -36,6 +36,9 @@ import {
   setProfileImage,
   getProfileImage,
 } from "../api/storage";
+import NotificationsModal from "../components/NotificationsModal";
+import { getInvitations, acceptInvitation } from "../api/Invite";
+import { useFocusEffect } from "@react-navigation/native";
 
 const { width } = Dimensions.get("window");
 
@@ -374,6 +377,9 @@ const ProfileScreen = ({ navigation }) => {
   const { user, token, logout, updateUser } = useUser();
   const [profileImage, setProfileImage] = useState(null);
   const queryClient = useQueryClient();
+  const [notificationsVisible, setNotificationsVisible] = useState(false);
+  const [isLoadingInvitations, setIsLoadingInvitations] = useState(false);
+  const [invitations, setInvitations] = useState([]);
 
   // Load profile image when component mounts and when user changes
   useEffect(() => {
@@ -743,150 +749,357 @@ const ProfileScreen = ({ navigation }) => {
     }
   };
 
+  // Load invitations when screen mounts
+  useEffect(() => {
+    fetchInvitations();
+  }, []);
+
+  const fetchInvitations = async () => {
+    try {
+      setIsLoadingInvitations(true);
+      const response = await getInvitations();
+      // Update to use the invitations array from the response
+      setInvitations(response.invitations || []);
+    } catch (error) {
+      console.error("Error fetching invitations:", error);
+      Alert.alert("Error", "Failed to fetch invitations");
+    } finally {
+      setIsLoadingInvitations(false);
+    }
+  };
+
+  const handleApproveInvitation = async (invitationId) => {
+    try {
+      await acceptInvitation(invitationId);
+      // Refresh the invitations list
+      fetchInvitations();
+      // Show success message
+      Alert.alert(
+        "Success",
+        "Invitation accepted successfully! You can now manage tasks for this loved one.",
+        [{ text: "OK" }]
+      );
+    } catch (error) {
+      console.error("Error accepting invitation:", error);
+      Alert.alert(
+        "Error",
+        error.message || "Failed to accept invitation. Please try again."
+      );
+    }
+  };
+
+  const handleRejectInvitation = async (invitationId) => {
+    // TODO: Implement reject invitation
+    Alert.alert("Coming Soon", "Reject invitation functionality coming soon!");
+  };
+
+  const handleNotificationPress = () => {
+    setNotificationsVisible(true);
+    fetchInvitations();
+  };
+
+  // Refresh invitations when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      fetchInvitations();
+    }, [])
+  );
+
   return (
     <SafeAreaView style={styles.container}>
+      <LinearGradient
+        colors={["#4A90E2", "#357ABD"]}
+        style={styles.header}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+      >
+        <Text style={styles.headerTitle}>Profile</Text>
+        <Pressable
+          style={({ pressed }) => [
+            styles.notificationButton,
+            pressed && styles.pressed,
+          ]}
+          onPress={handleNotificationPress}
+        >
+          <View style={styles.notificationIconContainer}>
+            <Ionicons name="notifications-outline" size={24} color="white" />
+            {invitations && invitations.length > 0 && (
+              <View style={styles.notificationBadge}>
+                <Text style={styles.notificationBadgeText}>
+                  {invitations.length}
+                </Text>
+              </View>
+            )}
+          </View>
+        </Pressable>
+      </LinearGradient>
+
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        <Animated.View
-          style={[
-            styles.header,
-            {
-              opacity: animations.fade,
-              transform: [{ scale: animations.scale }],
-            },
-          ]}
+        <LinearGradient
+          colors={["#4A90E2", "#357ABD"]}
+          style={styles.profileGradient}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
         >
-          <LinearGradient
-            colors={["#4A90E2", "#357ABD"]}
-            style={styles.headerGradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-          >
-            <Pressable
-              style={({ pressed }) => [
-                styles.profileImageContainer,
-                pressed && styles.pressed,
-              ]}
+          <View style={styles.profileImageContainer}>
+            <View style={styles.profileImage}>
+              {profileImage ? (
+                <Image
+                  source={{ uri: profileImage }}
+                  style={styles.profileImageStyle}
+                  resizeMode="cover"
+                />
+              ) : (
+                <Ionicons name="person" size={40} color="white" />
+              )}
+            </View>
+            <TouchableOpacity
+              style={styles.editButton}
               onPress={handleImagePick}
             >
-              <View style={styles.profileImage}>
-                {profileImage ? (
-                  <AuthImage
-                    source={{ uri: profileImage }}
-                    style={styles.profileImageStyle}
-                    onError={() => {
-                      Alert.alert("Error", "Failed to load profile image");
-                    }}
-                  />
-                ) : (
-                  <Ionicons name="person" size={40} color="white" />
-                )}
-              </View>
-              <EditButton loading={loading}>
+              <View style={styles.editButtonInner}>
                 <Ionicons name="camera" size={16} color="white" />
-              </EditButton>
-            </Pressable>
-            <Text style={styles.userName}>{user?.name || "User Name"}</Text>
-            <Text style={styles.userEmail}>
-              {user?.email || "email@example.com"}
-            </Text>
-          </LinearGradient>
-        </Animated.View>
+              </View>
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.userName}>{user?.name || "User Name"}</Text>
+          <Text style={styles.userEmail}>
+            {user?.email || "email@example.com"}
+          </Text>
 
-        <Animated.View
-          style={[
-            styles.section,
-            {
-              opacity: animations.lovedOnes,
-              transform: [{ translateY: animations.slide }],
-            },
-          ]}
-        >
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Loved Ones</Text>
+          <View style={styles.userStatsContainer}>
+            <View style={styles.statItem}>
+              <Text style={styles.statNumber}>{data?.length || 0}</Text>
+              <Text style={styles.statLabel}>Loved Ones</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <Text style={styles.statNumber}>{invitations?.length || 0}</Text>
+              <Text style={styles.statLabel}>Notifications</Text>
+            </View>
+          </View>
+        </LinearGradient>
+
+        <View style={styles.mainContent}>
+          <Animated.View
+            style={[
+              styles.section,
+              {
+                opacity: animations.fade,
+                transform: [{ translateY: animations.slide }],
+              },
+            ]}
+          >
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Loved Ones</Text>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.addButton,
+                  pressed && styles.pressed,
+                ]}
+                onPress={() => setModalVisible(true)}
+              >
+                <LinearGradient
+                  colors={["#4A90E2", "#357ABD"]}
+                  style={styles.addButtonGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                >
+                  <Ionicons name="add" size={24} color="white" />
+                </LinearGradient>
+              </Pressable>
+            </View>
+
+            {isLoading && <ActivityIndicator size="large" color="#4A90E2" />}
+            {error && (
+              <Text style={styles.errorText}>Failed to load loved ones.</Text>
+            )}
+            {!isLoading && !error && data?.length > 0
+              ? data.map((lovedOne) => (
+                  <View key={lovedOne._id} style={styles.lovedOneItem}>
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.lovedOneContent,
+                        pressed && styles.pressed,
+                      ]}
+                      onPress={() =>
+                        navigation.navigate("LovedOneDetails", { lovedOne })
+                      }
+                    >
+                      <View style={styles.lovedOneGradient}>
+                        <View style={styles.lovedOneHeader}>
+                          <View style={styles.lovedOneIconContainer}>
+                            <View style={styles.iconContainer}>
+                              {lovedOne.profileImage ? (
+                                <Image
+                                  source={{ uri: lovedOne.profileImage }}
+                                  style={styles.lovedOneProfileImageStyle}
+                                  resizeMode="cover"
+                                />
+                              ) : (
+                                <Ionicons
+                                  name="person"
+                                  size={24}
+                                  color="#4A90E2"
+                                />
+                              )}
+                              <Pressable
+                                style={styles.cameraIconOverlay}
+                                onPress={() =>
+                                  handleLovedOneImagePick(lovedOne._id)
+                                }
+                              >
+                                <Ionicons
+                                  name="camera"
+                                  size={12}
+                                  color="white"
+                                />
+                              </Pressable>
+                            </View>
+                          </View>
+                          <View style={styles.lovedOneInfo}>
+                            <Text style={styles.lovedOneName}>
+                              {lovedOne.name}
+                            </Text>
+                            <View style={styles.ageContainer}>
+                              <Ionicons
+                                name="calendar-outline"
+                                size={14}
+                                color="#666"
+                              />
+                              <Text style={styles.lovedOneAge}>
+                                {lovedOne.age} years old
+                              </Text>
+                            </View>
+                          </View>
+                          <Pressable
+                            style={({ pressed }) => [
+                              styles.deleteButton,
+                              pressed && styles.deletePressed,
+                            ]}
+                            onPress={() => handleDeleteLovedOne(lovedOne._id)}
+                          >
+                            <View style={styles.deleteButtonInner}>
+                              <Ionicons
+                                name="trash-outline"
+                                size={20}
+                                color="#EA4335"
+                              />
+                            </View>
+                          </Pressable>
+                        </View>
+
+                        {lovedOne.medical_history && (
+                          <View style={styles.medicalHistoryContainer}>
+                            <View style={styles.medicalHistoryHeader}>
+                              <Ionicons
+                                name="medical-outline"
+                                size={16}
+                                color="#4A90E2"
+                              />
+                              <Text style={styles.medicalHistoryLabel}>
+                                Medical History
+                              </Text>
+                            </View>
+                            <Text style={styles.medicalHistoryText}>
+                              {lovedOne.medical_history}
+                            </Text>
+                          </View>
+                        )}
+
+                        <View style={styles.cardFooter}>
+                          <View style={styles.footerInfo}>
+                            <View style={styles.taskCount}>
+                              <Ionicons
+                                name="calendar-outline"
+                                size={14}
+                                color="#34A853"
+                              />
+                              <Text style={styles.taskCountText}>
+                                {lovedOne.tasks?.length || 0} Tasks
+                              </Text>
+                            </View>
+                            <View style={styles.caregiverCount}>
+                              <Ionicons
+                                name="people-outline"
+                                size={14}
+                                color="#FBBC05"
+                              />
+                              <Text style={styles.caregiverCountText}>
+                                {lovedOne.caregivers?.length || 0} Caregivers
+                              </Text>
+                            </View>
+                          </View>
+                          <View style={styles.viewDetailsButton}>
+                            <Text style={styles.viewDetailsText}>
+                              View Details
+                            </Text>
+                            <Ionicons
+                              name="chevron-forward"
+                              size={16}
+                              color="#4A90E2"
+                            />
+                          </View>
+                        </View>
+                      </View>
+                    </Pressable>
+                  </View>
+                ))
+              : !isLoading && (
+                  <Text style={styles.noDataText}>
+                    No loved ones added yet.
+                  </Text>
+                )}
+          </Animated.View>
+
+          <Animated.View
+            style={[
+              styles.section,
+              {
+                opacity: animations.fade,
+                transform: [{ translateY: animations.slide }],
+              },
+            ]}
+          >
+            <Text style={styles.sectionTitle}>Account Settings</Text>
+            <MenuButton
+              icon="key-outline"
+              text="Change Password"
+              onPress={() => navigation.navigate("EditProfile")}
+            />
             <Pressable
               style={({ pressed }) => [
-                styles.addButton,
+                styles.logoutButton,
                 pressed && styles.pressed,
               ]}
-              onPress={() => setModalVisible(true)}
+              onPress={handleLogout}
             >
               <LinearGradient
-                colors={["#4A90E2", "#357ABD"]}
-                style={styles.addButtonGradient}
+                colors={["#EA4335", "#D32F2F"]}
+                style={styles.logoutGradient}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
               >
-                <Ionicons name="add" size={24} color="white" />
+                <Ionicons name="log-out-outline" size={24} color="white" />
+                <Text style={styles.logoutText}>Logout</Text>
               </LinearGradient>
             </Pressable>
-          </View>
-
-          {isLoading && <ActivityIndicator size="large" color="#4A90E2" />}
-          {error && (
-            <Text style={styles.errorText}>Failed to load loved ones.</Text>
-          )}
-          {!isLoading && !error && data?.length > 0
-            ? data.map((lovedOne) => (
-                <LovedOneCard
-                  key={lovedOne._id}
-                  lovedOne={lovedOne}
-                  onPress={() =>
-                    navigation.navigate("LovedOneDetails", { lovedOne })
-                  }
-                  onDelete={handleDeleteLovedOne}
-                  onImagePick={handleLovedOneImagePick}
-                  animValue={animations.lovedOnes}
-                  isLoading={loadingLovedOneId === lovedOne._id}
-                />
-              ))
-            : !isLoading && (
-                <Text style={styles.noDataText}>No loved ones added yet.</Text>
-              )}
-        </Animated.View>
-
-        <Animated.View
-          style={[
-            styles.section,
-            {
-              opacity: animations.fade,
-              transform: [{ translateY: animations.slide }],
-            },
-          ]}
-        >
-          <Text style={styles.sectionTitle}>Account Settings</Text>
-          <MenuButton
-            icon="person-outline"
-            text="Edit Profile"
-            onPress={() => {}}
-          />
-          <MenuButton
-            icon="notifications-outline"
-            text="Notifications"
-            onPress={() => {}}
-          />
-          <Pressable
-            style={({ pressed }) => [
-              styles.logoutButton,
-              pressed && styles.pressed,
-            ]}
-            onPress={handleLogout}
-          >
-            <LinearGradient
-              colors={["#EA4335", "#D32F2F"]}
-              style={styles.logoutGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-            >
-              <Ionicons name="log-out-outline" size={24} color="white" />
-              <Text style={styles.logoutText}>Logout</Text>
-            </LinearGradient>
-          </Pressable>
-        </Animated.View>
+          </Animated.View>
+        </View>
       </ScrollView>
+
+      <NotificationsModal
+        visible={notificationsVisible}
+        onClose={() => setNotificationsVisible(false)}
+        invitations={invitations}
+        isLoading={isLoadingInvitations}
+        onApprove={handleApproveInvitation}
+        onReject={handleRejectInvitation}
+      />
 
       <AddLovedOneModal
         visible={modalVisible}
@@ -907,8 +1120,46 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    marginBottom: 20,
-    overflow: "hidden",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomColor: "rgba(255, 255, 255, 0.1)",
+    borderBottomWidth: 1,
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: "800",
+    color: "white",
+    letterSpacing: 0.5,
+  },
+  notificationButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
+  },
+  notificationIconContainer: {
+    position: "relative",
+    padding: 4,
+  },
+  notificationBadge: {
+    position: "absolute",
+    top: -5,
+    right: -5,
+    backgroundColor: "#EA4335",
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: "white",
+  },
+  notificationBadgeText: {
+    color: "white",
+    fontSize: 11,
+    fontWeight: "800",
   },
   headerGradient: {
     padding: 20,
@@ -916,35 +1167,32 @@ const styles = StyleSheet.create({
   },
   profileImageContainer: {
     alignItems: "center",
-    marginBottom: 16,
+    marginBottom: 20,
   },
   profileImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
     backgroundColor: "rgba(255,255,255,0.2)",
     justifyContent: "center",
     alignItems: "center",
-    borderWidth: 3,
+    borderWidth: 4,
     borderColor: "white",
     overflow: "hidden",
   },
   profileImageStyle: {
     width: "100%",
     height: "100%",
-    borderRadius: 50,
   },
   editButton: {
     position: "absolute",
-    bottom: 4,
-    right: 4,
+    bottom: 0,
+    right: 0,
+    backgroundColor: "#4A90E2",
     borderRadius: 20,
-    overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
+    padding: 8,
+    borderWidth: 3,
+    borderColor: "white",
   },
   editButtonInner: {
     width: 32,
@@ -960,24 +1208,55 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: "700",
     color: "white",
-    marginTop: 8,
+    marginTop: 12,
   },
   userEmail: {
     fontSize: 16,
-    color: "rgba(255,255,255,0.8)",
+    color: "rgba(255,255,255,0.9)",
     marginTop: 4,
   },
+  userStatsContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 20,
+    paddingHorizontal: 20,
+    width: "100%",
+  },
+  statItem: {
+    alignItems: "center",
+    flex: 1,
+  },
+  statNumber: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: "white",
+  },
+  statLabel: {
+    fontSize: 14,
+    color: "rgba(255,255,255,0.9)",
+    marginTop: 4,
+  },
+  statDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    marginHorizontal: 30,
+  },
+  mainContent: {
+    flex: 1,
+    paddingTop: 20,
+  },
   section: {
-    marginHorizontal: 20,
-    marginBottom: 20,
     backgroundColor: "white",
-    borderRadius: 15,
+    borderRadius: 20,
     padding: 20,
+    marginHorizontal: 20,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowRadius: 12,
+    elevation: 5,
   },
   sectionHeader: {
     flexDirection: "row",
@@ -987,8 +1266,10 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 20,
-    fontWeight: "600",
+    fontWeight: "700",
     color: "#333",
+    marginBottom: 16,
+    letterSpacing: 0.5,
   },
   addButton: {
     borderRadius: 12,
@@ -1000,6 +1281,8 @@ const styles = StyleSheet.create({
   },
   lovedOneItem: {
     marginBottom: 15,
+    backgroundColor: "white",
+    borderRadius: 16,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -1009,11 +1292,9 @@ const styles = StyleSheet.create({
   lovedOneContent: {
     borderRadius: 16,
     overflow: "hidden",
-    backgroundColor: "white",
   },
   lovedOneGradient: {
     padding: 16,
-    backgroundColor: "white",
   },
   lovedOneHeader: {
     flexDirection: "row",
@@ -1022,21 +1303,32 @@ const styles = StyleSheet.create({
   },
   lovedOneIconContainer: {
     marginRight: 12,
-  },
-  iconGradient: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    overflow: "hidden",
+    backgroundColor: "#f8f9fa",
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 4,
+    borderWidth: 2,
+    borderColor: "#E1E1E1",
+    position: "relative",
+  },
+  iconContainer: {
+    width: "100%",
+    height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
+    position: "relative",
+  },
+  lovedOneProfileImageStyle: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 25,
   },
   lovedOneInfo: {
     flex: 1,
+    marginLeft: 4,
   },
   lovedOneName: {
     fontSize: 18,
@@ -1140,24 +1432,36 @@ const styles = StyleSheet.create({
   },
   menuItem: {
     marginBottom: 12,
-    borderRadius: 12,
+    borderRadius: 16,
     overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   menuItemGradient: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 15,
+    padding: 16,
+    paddingHorizontal: 20,
   },
   menuText: {
     flex: 1,
-    marginLeft: 12,
     fontSize: 16,
+    fontWeight: "600",
     color: "#333",
+    marginLeft: 12,
   },
   logoutButton: {
-    marginTop: 20,
-    borderRadius: 12,
+    marginTop: 8,
+    borderRadius: 16,
     overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
   },
   logoutGradient: {
     flexDirection: "row",
@@ -1167,9 +1471,9 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   logoutText: {
+    color: "white",
     fontSize: 16,
     fontWeight: "600",
-    color: "white",
   },
   errorText: {
     color: "#EA4335",
@@ -1275,7 +1579,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   scrollContent: {
-    paddingBottom: 20,
+    flexGrow: 1,
   },
   pressed: {
     opacity: 0.8,
@@ -1296,14 +1600,20 @@ const styles = StyleSheet.create({
     position: "absolute",
     bottom: -4,
     right: -4,
-    backgroundColor: "rgba(74,144,226,0.9)",
-    borderRadius: 10,
-    width: 20,
-    height: 20,
+    backgroundColor: "#4A90E2",
+    borderRadius: 12,
+    width: 22,
+    height: 22,
     justifyContent: "center",
     alignItems: "center",
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: "white",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 2,
+    zIndex: 1,
   },
   iconContainer: {
     width: 44,
@@ -1337,6 +1647,13 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
     borderRadius: 22,
+  },
+  profileGradient: {
+    alignItems: "center",
+    paddingVertical: 30,
+    paddingHorizontal: 20,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
   },
 });
 

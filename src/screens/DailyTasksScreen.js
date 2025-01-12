@@ -68,36 +68,96 @@ const DailyTasksScreen = ({ navigation }) => {
         end={{ x: 1, y: 1 }}
       >
         <View style={styles.taskContent}>
-          <Text style={styles.taskTitle}>{task.title}</Text>
-          <View style={styles.taskDetails}>
-            <View style={styles.timeContainer}>
-              <Ionicons name="time-outline" size={16} color="#666" />
-              <Text style={styles.timeText}>
-                {new Date(task.due_date).toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                  hour12: true,
-                })}
+          <View style={styles.taskHeader}>
+            <View style={styles.taskTitleContainer}>
+              <Text style={styles.taskTitle} numberOfLines={1}>
+                {task.title}
               </Text>
-            </View>
-            <View style={styles.assigneeContainer}>
-              <View style={styles.assigneeInfo}>
-                <Text style={styles.assigneeLabel}>Created by</Text>
-                <Text style={styles.assigneeName}>
-                  {task.created_by?.name || "Unknown"}
+              <View
+                style={[
+                  styles.priorityBadge,
+                  task.priority === "HIGH" && styles.highPriorityBadge,
+                  task.priority === "MEDIUM" && styles.mediumPriorityBadge,
+                  task.priority === "LOW" && styles.lowPriorityBadge,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.priorityText,
+                    task.priority === "HIGH" && styles.highPriorityText,
+                    task.priority === "MEDIUM" && styles.mediumPriorityText,
+                    task.priority === "LOW" && styles.lowPriorityText,
+                  ]}
+                >
+                  {task.priority}
                 </Text>
               </View>
-              <View style={styles.categoryBadge}>
+            </View>
+            <View
+              style={[
+                styles.statusBadge,
+                task.status === "COMPLETED" && styles.completedStatusBadge,
+                task.status === "IN_PROGRESS" && styles.inProgressStatusBadge,
+                task.status === "PENDING" && styles.pendingStatusBadge,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.statusText,
+                  task.status === "COMPLETED" && styles.completedStatusText,
+                  task.status === "IN_PROGRESS" && styles.inProgressStatusText,
+                  task.status === "PENDING" && styles.pendingStatusText,
+                ]}
+              >
+                {task.status}
+              </Text>
+            </View>
+          </View>
+
+          {task.description && (
+            <Text style={styles.taskDescription} numberOfLines={2}>
+              {task.description}
+            </Text>
+          )}
+
+          <View style={styles.taskMetadata}>
+            <View style={styles.metadataRow}>
+              <View style={styles.timeContainer}>
+                <Ionicons name="calendar-outline" size={16} color="#666" />
+                <View style={styles.timeTextContainer}>
+                  <Text style={styles.timeLabel}>Due</Text>
+                  <Text style={styles.timeText}>
+                    {new Date(task.due_date).toLocaleDateString([], {
+                      month: "short",
+                      day: "numeric",
+                    })}
+                    {" • "}
+                    {new Date(task.due_date).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      hour12: true,
+                    })}
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.categoryContainer}>
+                <Ionicons name="bookmark-outline" size={16} color="#666" />
                 <Text style={styles.categoryText}>{task.category}</Text>
               </View>
             </View>
-            <View style={styles.assigneeContainer}>
-              <View style={styles.assigneeInfo}>
-                <Text style={styles.assigneeLabel}>Priority</Text>
-                <Text style={styles.assigneeName}>{task.priority}</Text>
+
+            <View style={styles.metadataRow}>
+              <View style={styles.assigneeContainer}>
+                <Ionicons name="person-outline" size={16} color="#666" />
+                <Text style={styles.assigneeText} numberOfLines={1}>
+                  {task.assigned_to?.name || "Unassigned"}
+                </Text>
               </View>
-              <View style={styles.statusBadge}>
-                <Text style={styles.statusText}>{task.status}</Text>
+              <View style={styles.creatorContainer}>
+                <Ionicons name="create-outline" size={16} color="#666" />
+                <Text style={styles.creatorText} numberOfLines={1}>
+                  {task.created_by?.name || "Unknown"}
+                </Text>
               </View>
             </View>
           </View>
@@ -257,7 +317,7 @@ const styles = StyleSheet.create({
   },
   taskItem: {
     marginBottom: 15,
-    borderRadius: 15,
+    borderRadius: 16,
     overflow: "hidden",
     backgroundColor: "white",
     shadowColor: "#000",
@@ -267,66 +327,150 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   taskGradient: {
-    padding: 15,
+    padding: 16,
   },
   taskContent: {
-    gap: 10,
+    gap: 12,
+  },
+  taskHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: 8,
+  },
+  taskTitleContainer: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
   taskTitle: {
+    flex: 1,
     fontSize: 18,
     fontWeight: "600",
     color: "#333",
   },
-  taskDetails: {
-    gap: 12,
-  },
-  timeContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  timeText: {
-    fontSize: 14,
-    color: "#666",
-  },
-  assigneeContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  assigneeInfo: {
-    gap: 4,
-  },
-  assigneeLabel: {
-    fontSize: 12,
-    color: "#999",
-  },
-  assigneeName: {
-    fontSize: 14,
-    fontWeight: "500",
-    color: "#333",
-  },
-  categoryBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
+  priorityBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
     backgroundColor: "#E8F5E9",
   },
-  categoryText: {
+  highPriorityBadge: {
+    backgroundColor: "#FFEBEE",
+  },
+  mediumPriorityBadge: {
+    backgroundColor: "#FFF3E0",
+  },
+  lowPriorityBadge: {
+    backgroundColor: "#E8F5E9",
+  },
+  priorityText: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#34A853",
+    color: "#2E7D32",
+  },
+  highPriorityText: {
+    color: "#D32F2F",
+  },
+  mediumPriorityText: {
+    color: "#F57C00",
+  },
+  lowPriorityText: {
+    color: "#2E7D32",
   },
   statusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
+    backgroundColor: "#E8F5E9",
+  },
+  completedStatusBadge: {
+    backgroundColor: "#E8F5E9",
+  },
+  inProgressStatusBadge: {
+    backgroundColor: "#E3F2FD",
+  },
+  pendingStatusBadge: {
     backgroundColor: "#FFF3E0",
   },
   statusText: {
     fontSize: 12,
     fontWeight: "600",
+    color: "#2E7D32",
+  },
+  completedStatusText: {
+    color: "#2E7D32",
+  },
+  inProgressStatusText: {
+    color: "#1976D2",
+  },
+  pendingStatusText: {
     color: "#F57C00",
+  },
+  taskDescription: {
+    fontSize: 14,
+    color: "#666",
+    lineHeight: 20,
+  },
+  taskMetadata: {
+    gap: 8,
+  },
+  metadataRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  timeContainer: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  timeTextContainer: {
+    flex: 1,
+  },
+  timeLabel: {
+    fontSize: 12,
+    color: "#999",
+    marginBottom: 2,
+  },
+  timeText: {
+    fontSize: 14,
+    color: "#666",
+    fontWeight: "500",
+  },
+  categoryContainer: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    justifyContent: "flex-end",
+  },
+  categoryText: {
+    fontSize: 14,
+    color: "#666",
+  },
+  assigneeContainer: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  assigneeText: {
+    fontSize: 14,
+    color: "#666",
+  },
+  creatorContainer: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    justifyContent: "flex-end",
+  },
+  creatorText: {
+    fontSize: 14,
+    color: "#666",
   },
   noTasksContainer: {
     flex: 1,

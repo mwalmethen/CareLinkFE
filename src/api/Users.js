@@ -1,5 +1,6 @@
 import instance from "./index";
 import axios from "axios";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // get all loved ones
 const getAllLovedOnes = async () => {
@@ -160,6 +161,74 @@ const uploadLovedOneProfileImage = async (lovedOneId, imageUri, token) => {
       "Error uploading loved one profile image:",
       error.response?.data || error.message
     );
+    throw error;
+  }
+};
+
+export const getLovedOneCaregivers = async (lovedOneId) => {
+  try {
+    const token = await AsyncStorage.getItem("token");
+    if (!token) {
+      throw new Error("No authentication token found");
+    }
+
+    const response = await fetch(
+      `https://seal-app-doaaw.ondigitalocean.app/api/loved-ones/${lovedOneId}/caregivers`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    const data = await response.json();
+    console.log("Caregivers response:", data);
+
+    if (!response.ok) {
+      throw new Error(data.message || "Failed to fetch caregivers");
+    }
+
+    return data;
+  } catch (error) {
+    console.error("Error fetching caregivers:", error);
+    throw error;
+  }
+};
+
+export const inviteCaregiver = async (email, lovedOneId) => {
+  try {
+    const token = await AsyncStorage.getItem("token");
+    if (!token) {
+      throw new Error("No authentication token found");
+    }
+
+    const response = await fetch(
+      "https://seal-app-doaaw.ondigitalocean.app/api/caregivers/assign-role",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email,
+          lovedOneId,
+        }),
+      }
+    );
+
+    const data = await response.json();
+    console.log("Invite caregiver response:", data);
+
+    if (!response.ok) {
+      throw new Error(data.message || "Failed to invite caregiver");
+    }
+
+    return data;
+  } catch (error) {
+    console.error("Error inviting caregiver:", error);
     throw error;
   }
 };

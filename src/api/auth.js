@@ -109,4 +109,40 @@ const login = async (email, password) => {
   }
 };
 
+export const changePassword = async (oldPassword, newPassword) => {
+  try {
+    const token = await AsyncStorage.getItem("token");
+    if (!token) {
+      throw new Error("No authentication token found");
+    }
+
+    const response = await fetch(
+      "https://seal-app-doaaw.ondigitalocean.app/api/auth/change-password",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          oldPassword,
+          newPassword,
+        }),
+      }
+    );
+
+    const data = await response.json();
+    console.log("Change password response:", data);
+
+    if (!response.ok) {
+      throw new Error(data.message || "Failed to change password");
+    }
+
+    return data;
+  } catch (error) {
+    console.error("Error changing password:", error);
+    throw error;
+  }
+};
+
 export { register, login };
