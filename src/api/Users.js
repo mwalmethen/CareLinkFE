@@ -5,17 +5,85 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 // get all loved ones
 const getAllLovedOnes = async () => {
   try {
-    const response = await instance.get(
-      "/api/caregivers/loved-ones" // Correct endpoint
+    const token = await AsyncStorage.getItem("token");
+    if (!token) {
+      throw new Error("No authentication token found");
+    }
+
+    const response = await fetch(
+      "https://seal-app-doaaw.ondigitalocean.app/api/caregivers/loved-ones",
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      }
     );
-    console.log("Loved Ones Response:", response); // Debugging log
-    return response; // Return response
+
+    const data = await response.json();
+    console.log("Initial Loved Ones Response:", data);
+
+    // Fetch tasks for each loved one
+    const lovedOnesWithTasks = await Promise.all(
+      data.map(async (lovedOne) => {
+        try {
+          console.log(
+            `Fetching tasks for loved one: ${lovedOne.name} (${lovedOne._id})`
+          );
+          const tasksResponse = await fetch(
+            `https://seal-app-doaaw.ondigitalocean.app/api/tasks/loved-one/${lovedOne._id}`,
+            {
+              method: "GET",
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+              },
+            }
+          );
+          const tasksData = await tasksResponse.json();
+          console.log(`Tasks response for ${lovedOne.name}:`, tasksData);
+          console.log(
+            `Number of tasks for ${lovedOne.name}:`,
+            Array.isArray(tasksData) ? tasksData.length : 0
+          );
+
+          const lovedOneWithTasks = {
+            ...lovedOne,
+            tasks: {
+              ...tasksData,
+              total:
+                tasksData.total ||
+                (tasksData.completed?.length || 0) +
+                  (tasksData.pending?.length || 0),
+            },
+          };
+          console.log(
+            `Final loved one object with tasks for ${lovedOne.name}:`,
+            lovedOneWithTasks
+          );
+          return lovedOneWithTasks;
+        } catch (error) {
+          console.error(
+            `Error fetching tasks for loved one ${lovedOne.name} (${lovedOne._id}):`,
+            error
+          );
+          return {
+            ...lovedOne,
+            tasks: [],
+          };
+        }
+      })
+    );
+
+    console.log("Final lovedOnesWithTasks array:", lovedOnesWithTasks);
+    return lovedOnesWithTasks;
   } catch (error) {
     console.error(
       "Get Loved Ones Error:",
       error.response?.data || error.message
     );
-    throw error; // Ensure errors are thrown for React Query to handle
+    throw error;
   }
 };
 
