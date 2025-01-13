@@ -12,7 +12,6 @@ import MainScreen from "./src/screens/MainScreen";
 import LoginScreen from "./src/screens/LoginScreen";
 import RegisterScreen from "./src/screens/RegisterScreen";
 import DailyTasksScreen from "./src/screens/DailyTasksScreen";
-import HealthMonitoringScreen from "./src/screens/HealthMonitoringScreen";
 import CreateTaskScreen from "./src/screens/CreateTaskScreen";
 import ProfileScreen from "./src/screens/ProfileScreen";
 import EmergencyButton from "./src/screens/EmergencyButton";
@@ -23,6 +22,7 @@ import EditProfileScreen from "./src/screens/EditProfileScreen";
 import MedicalHistoryScreen from "./src/screens/MedicalHistoryScreen";
 import HealthScreen from "./src/screens/HealthScreen";
 import MedicationForm from "./src/screens/Medication";
+import { gestureHandlerRootHOC } from "react-native-gesture-handler";
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -98,12 +98,12 @@ export default function App() {
               <Stack.Screen name="Main" component={MainScreen} />
               <Stack.Screen name="Login" component={LoginScreen} />
               <Stack.Screen name="Register" component={RegisterScreen} />
-              <Stack.Screen name="HomeTabs" component={MainTabs} />
-              <Stack.Screen name="CreateTask" component={CreateTaskScreen} />
               <Stack.Screen
-                name="EmergencyButton"
-                component={EmergencyButton}
+                name="HomeTabs"
+                component={MainTabs}
+                options={{ gestureEnabled: false }}
               />
+              <Stack.Screen name="CreateTask" component={CreateTaskScreen} />
               <Stack.Screen
                 name="LovedOneDetails"
                 component={LovedOneDetailsScreen}
