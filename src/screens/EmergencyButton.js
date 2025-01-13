@@ -8,8 +8,6 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  Keyboard,
-  TouchableWithoutFeedback,
   ScrollView,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -18,7 +16,6 @@ import DropDownPicker from "react-native-dropdown-picker";
 import { useUser } from "../api/UserContext";
 import { getAllLovedOnes } from "../api/Users";
 import { useQuery } from "@tanstack/react-query";
-import { useNavigation } from "@react-navigation/native";
 
 const EmergencyButton = ({ navigation }) => {
   const [lovedOne, setLovedOne] = useState("");
@@ -41,11 +38,6 @@ const EmergencyButton = ({ navigation }) => {
     enabled: true,
   });
 
-  const { data: lovedOnes = [] } = useQuery({
-    queryKey: ["lovedOnes"],
-    queryFn: getAllLovedOnes,
-  });
-
   useEffect(() => {
     if (data) {
       const formattedData = data.map((lovedOne) => ({
@@ -66,10 +58,6 @@ const EmergencyButton = ({ navigation }) => {
     console.log(emergencyRequest);
   };
 
-  const navigateToMedicationForm = () => {
-    navigation.navigate("MedicationForm");
-  };
-
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
@@ -77,13 +65,7 @@ const EmergencyButton = ({ navigation }) => {
         style={styles.keyboardView}
       >
         <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-          >
-            <Ionicons name="arrow-back" size={24} color="#333" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Emergency Request</Text>
+          <Text style={styles.headerTitle}>Emergency Alert</Text>
           <View style={{ width: 24 }} />
         </View>
 
@@ -142,14 +124,6 @@ const EmergencyButton = ({ navigation }) => {
             />
           </View>
 
-          {/* <View style={[styles.section, { zIndex: 1000 }]}>
-              <Text style={styles.label}>Requester</Text>
-              <View style={styles.requesterContainer}>
-                <Ionicons name="person" size={20} color="#4A90E2" />
-                <Text style={styles.requesterText}>{user.name}</Text>
-              </View>
-            </View> */}
-
           <View style={[styles.section, { zIndex: 1000 }]}>
             <Text style={styles.label}>Description</Text>
             <TextInput
@@ -189,7 +163,7 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    justifyContent: "center",
     alignItems: "center",
     padding: 20,
     backgroundColor: "white",
