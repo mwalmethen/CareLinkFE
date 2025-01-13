@@ -35,6 +35,7 @@
     "react-native-pager-view": "^6.6.1",
     "react-native-safe-area-context": "^5.0.0",
     "react-native-screens": "^4.4.0",
+    "react-native-svg": "^15.11.1",
     "react-native-tab-view": "^4.0.5"
   },
   "devDependencies": {

@@ -24,11 +24,20 @@ import { LinearGradient } from "expo-linear-gradient";
 
 const { width } = Dimensions.get("window");
 
-const DailyTasksScreen = ({ navigation }) => {
+const DailyTasksScreen = ({ navigation, route }) => {
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [selectedLovedOne, setSelectedLovedOne] = useState(null);
+  const [selectedLovedOne, setSelectedLovedOne] = useState(
+    route.params?.lovedOne || null
+  );
   const { token } = useUser();
   const queryClient = useQueryClient();
+
+  // Set initial selected loved one from route params
+  useEffect(() => {
+    if (route.params?.lovedOne) {
+      setSelectedLovedOne(route.params.lovedOne);
+    }
+  }, [route.params?.lovedOne]);
 
   const { data: lovedOnes = [] } = useQuery({
     queryKey: ["lovedOnes"],
@@ -57,7 +66,6 @@ const DailyTasksScreen = ({ navigation }) => {
 
   const renderTaskItem = (task) => (
     <Pressable
-      key={task._id}
       style={styles.taskItem}
       onPress={() => navigation.navigate("TaskDetails", { task })}
     >
@@ -235,14 +243,22 @@ const DailyTasksScreen = ({ navigation }) => {
               {tasks.pending.length > 0 && (
                 <View style={styles.sectionContainer}>
                   <Text style={styles.sectionTitle}>Pending Tasks</Text>
-                  {tasks.pending.map(renderTaskItem)}
+                  {tasks.pending.map((task, index) => (
+                    <View key={task._id || `pending-${index}`}>
+                      {renderTaskItem(task)}
+                    </View>
+                  ))}
                 </View>
               )}
 
               {tasks.completed.length > 0 && (
                 <View style={styles.sectionContainer}>
                   <Text style={styles.sectionTitle}>Completed Tasks</Text>
-                  {tasks.completed.map(renderTaskItem)}
+                  {tasks.completed.map((task, index) => (
+                    <View key={task._id || `completed-${index}`}>
+                      {renderTaskItem(task)}
+                    </View>
+                  ))}
                 </View>
               )}
             </>

@@ -20,6 +20,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { getLovedOneCaregivers, inviteCaregiver } from "../api/Users";
 import { useQuery } from "@tanstack/react-query";
 import { getTask } from "../api/CreateTask";
+import { useUser } from "../api/UserContext";
 
 const { width } = Dimensions.get("window");
 
@@ -127,17 +128,38 @@ const InviteModal = ({
 
 const LovedOneDetailsScreen = ({ route, navigation }) => {
   const { lovedOne } = route.params;
+  const { token } = useUser();
   const [caregivers, setCaregivers] = useState([]);
   const [isLoadingCaregivers, setIsLoadingCaregivers] = useState(true);
   const [inviteModalVisible, setInviteModalVisible] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [isInviting, setIsInviting] = useState(false);
 
-  // Add task query
-  const { data: tasks = { pending: [], completed: [], total: 0 } } = useQuery({
+  // Add query to fetch tasks for this loved one
+  const {
+    data: tasks = { pending: [], completed: [], total: 0 },
+    isLoading: tasksLoading,
+  } = useQuery({
     queryKey: ["tasks", lovedOne._id],
-    queryFn: () => getTask(lovedOne._id),
-    enabled: !!lovedOne._id,
+    queryFn: async () => {
+      const response = await fetch(
+        `https://seal-app-doaaw.ondigitalocean.app/api/tasks/loved-one/${lovedOne._id}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      if (!response.ok) {
+        throw new Error("Failed to fetch tasks");
+      }
+      const data = await response.json();
+      return {
+        pending: data.pending || [],
+        completed: data.completed || [],
+        total: data.total || 0,
+      };
+    },
   });
 
   const fetchCaregivers = async () => {
@@ -193,7 +215,28 @@ const LovedOneDetailsScreen = ({ route, navigation }) => {
   };
 
   const handleViewTasks = () => {
-    navigation.navigate("DailyTasks", { lovedOneId: lovedOne._id });
+    if (tasksLoading) {
+      return;
+    }
+
+    if (!tasks || (!tasks.pending?.length && !tasks.completed?.length)) {
+      Alert.alert(
+        "No Tasks",
+        "There are no tasks assigned to this loved one yet.",
+        [
+          {
+            text: "Create Task",
+            onPress: () => navigation.navigate("CreateTask", { lovedOne }),
+          },
+          { text: "OK", style: "cancel" },
+        ]
+      );
+      return;
+    }
+    navigation.navigate("HomeTabs", {
+      screen: "DailyTasks",
+      params: { lovedOne },
+    });
   };
 
   const handleInviteCaregiver = async () => {

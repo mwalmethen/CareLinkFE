@@ -20,6 +20,7 @@ import { getAllLovedOnes, getLovedOneCaregivers } from "../api/Users";
 import { useUser } from "../api/UserContext";
 import { LinearGradient } from "expo-linear-gradient";
 import { createTask } from "../api/CreateTask";
+import DropDownPicker from "react-native-dropdown-picker";
 
 const DropdownSelect = ({
   label,
@@ -88,9 +89,6 @@ const DropdownSelect = ({
               }}
             >
               <Text style={styles.dropdownItemText}>{option.name}</Text>
-              {(value?.id === option.id || value?._id === option._id) && (
-                <Ionicons name="checkmark" size={20} color="#4A90E2" />
-              )}
             </Pressable>
           ))}
         </ScrollView>
@@ -110,6 +108,33 @@ const DateTimeButton = ({ value, icon, onPress }) => (
 );
 
 const CreateTaskScreen = ({ navigation }) => {
+  const [formData, setFormData] = useState({
+    title: "",
+    description: "",
+    due_date: new Date(),
+    start_time: new Date(),
+    end_time: new Date(),
+    category: "MEDICATION",
+    priority: "MEDIUM",
+    assigned_to: "",
+  });
+
+  const categoryOptions = [
+    { _id: "MEDICATION", name: "Medication" },
+    { _id: "HEALTH_CHECK", name: "Health Check" },
+    { _id: "APPOINTMENT", name: "Appointment" },
+    { _id: "EXERCISE", name: "Exercise" },
+    { _id: "DIET", name: "Diet" },
+    { _id: "HYGIENE", name: "Hygiene" },
+    { _id: "SOCIAL", name: "Social" },
+  ];
+
+  const priorityOptions = [
+    { _id: "HIGH", name: "High" },
+    { _id: "MEDIUM", name: "Medium" },
+    { _id: "LOW", name: "Low" },
+  ];
+
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [date, setDate] = useState(new Date());
@@ -186,34 +211,27 @@ const CreateTaskScreen = ({ navigation }) => {
     },
   });
 
-  const handleCreateTask = async () => {
-    if (!title.trim()) {
-      Alert.alert("Error", "Please enter a task title");
-      return;
-    }
-
+  const handleSubmit = async () => {
     if (!selectedLovedOne) {
       Alert.alert("Error", "Please select a loved one");
       return;
     }
 
-    if (!selectedMember) {
-      Alert.alert("Error", "Please select who to assign the task to");
+    if (!title.trim()) {
+      Alert.alert("Error", "Please enter a task title");
       return;
     }
 
     try {
-      const combinedDateTime = new Date(date);
-      combinedDateTime.setHours(startTime.getHours());
-      combinedDateTime.setMinutes(startTime.getMinutes());
-
       const taskData = {
         title: title.trim(),
         description: description.trim(),
-        loved_one_id: selectedLovedOne._id,
-        assigned_to: selectedMember._id, // Use the caregiver's ID
-        due_date: combinedDateTime.toISOString(),
-        category: "MEDICATION",
+        due_date: date,
+        start_time: startTime,
+        end_time: endTime,
+        category: formData.category.value || formData.category,
+        priority: formData.priority.value || formData.priority,
+        assigned_to: formData.assigned_to?._id || formData.assigned_to,
       };
 
       createMutation.mutate({
@@ -222,6 +240,7 @@ const CreateTaskScreen = ({ navigation }) => {
       });
     } catch (error) {
       console.error("Error creating task:", error);
+      Alert.alert("Error", "Failed to create task. Please try again.");
     }
   };
 
@@ -340,14 +359,38 @@ const CreateTaskScreen = ({ navigation }) => {
           />
 
           <DropdownSelect
+            label="Category"
+            value={formData.category}
+            options={categoryOptions}
+            onSelect={(value) =>
+              setFormData({ ...formData, category: value._id })
+            }
+            icon="bookmark-outline"
+            placeholder="Select category"
+          />
+
+          <DropdownSelect
+            label="Priority"
+            value={formData.priority}
+            options={priorityOptions}
+            onSelect={(value) =>
+              setFormData({ ...formData, priority: value._id })
+            }
+            icon="alert-circle-outline"
+            placeholder="Select priority"
+          />
+
+          <DropdownSelect
             label="Assign To"
-            value={selectedMember}
+            value={formData.assigned_to}
             options={caregivers.map((caregiver) => ({
               _id: caregiver._id,
               name: caregiver.user.name,
               email: caregiver.user.email,
             }))}
-            onSelect={setSelectedMember}
+            onSelect={(value) =>
+              setFormData({ ...formData, assigned_to: value })
+            }
             icon="person-outline"
             disabled={!selectedLovedOne || isLoadingCaregivers}
             placeholder={
@@ -538,7 +581,7 @@ const CreateTaskScreen = ({ navigation }) => {
             styles.createButton,
             pressed && styles.pressed,
           ]}
-          onPress={handleCreateTask}
+          onPress={handleSubmit}
         >
           <LinearGradient
             colors={["#4A90E2", "#357ABD"]}
