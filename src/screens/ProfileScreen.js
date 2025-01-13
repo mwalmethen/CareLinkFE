@@ -1186,6 +1186,11 @@ const ProfileScreen = ({ navigation }) => {
           >
             <Text style={styles.sectionTitle}>Account Settings</Text>
             <MenuButton
+              icon="clipboard-outline"
+              text="Care Plans"
+              onPress={() => navigation.navigate("CarePlan")}
+            />
+            <MenuButton
               icon="key-outline"
               text="Change Password"
               onPress={() => navigation.navigate("EditProfile")}
