@@ -1,200 +1,279 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  Modal,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
+  Animated,
+  Dimensions,
+  Easing,
+  Pressable,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { getAllLovedOnes } from "../api/Users";
+import { getTask } from "../api/CreateTask";
+import { useUser } from "../api/UserContext";
+import { LinearGradient } from "expo-linear-gradient";
 
-const DailyTasksScreen = ({ navigation }) => {
-  const [selectedDate, setSelectedDate] = useState("6"); // Current selected date
+const { width } = Dimensions.get("window");
 
-  const dates = [
-    { day: "SUN", date: "5" },
-    { day: "MON", date: "6" },
-    { day: "TUE", date: "7" },
-    { day: "WED", date: "8" },
-    { day: "THU", date: "9" },
-  ];
+const DailyTasksScreen = ({ navigation, route }) => {
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [selectedLovedOne, setSelectedLovedOne] = useState(
+    route.params?.lovedOne || null
+  );
+  const { token } = useUser();
+  const queryClient = useQueryClient();
 
-  const allTasks = [
-    {
-      id: 1,
-      title: "Physiotherapy session",
-      time: "07:30 AM - 08:00 AM",
-      assignedTo: "Me",
-      completed: true,
-      date: "6", // Monday's task
-    },
-    {
-      id: 2,
-      title: "Medication for heart condition",
-      time: "01:30 PM - 03:00 PM",
-      assignedTo: "Abdullah",
-      completed: false,
-      date: "6", // Monday's task
-    },
-    {
-      id: 3,
-      title: "Walk in the neighborhood",
-      time: "04:30 PM - 05:00 PM",
-      assignedTo: "Mother",
-      completed: false,
-      date: "7", // Tuesday's task
-    },
-    {
-      id: 4,
-      title: "Blood pressure check",
-      time: "09:00 AM - 09:30 AM",
-      assignedTo: "Father",
-      completed: false,
-      date: "8", // Wednesday's task
-    },
-    {
-      id: 5,
-      title: "Doctor's appointment",
-      time: "11:00 AM - 12:00 PM",
-      assignedTo: "Mother",
-      completed: false,
-      date: "5", // Sunday's task
-    },
-  ];
+  // Set initial selected loved one from route params
+  useEffect(() => {
+    if (route.params?.lovedOne) {
+      setSelectedLovedOne(route.params.lovedOne);
+    }
+  }, [route.params?.lovedOne]);
 
-  // Filter tasks based on selected date
-  const filteredTasks = allTasks.filter((task) => task.date === selectedDate);
+  const { data: lovedOnes = [] } = useQuery({
+    queryKey: ["lovedOnes"],
+    queryFn: getAllLovedOnes,
+  });
 
-  // Calculate progress for the selected date
-  const completedTasks = filteredTasks.filter((task) => task.completed).length;
-  const totalTasks = filteredTasks.length;
-  const progressPercentage =
-    totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
+  const {
+    data: tasks = { pending: [], completed: [], total: 0 },
+    isLoading,
+    error,
+  } = useQuery({
+    queryKey: ["tasks", selectedLovedOne?._id],
+    queryFn: () => getTask(selectedLovedOne._id),
+    enabled: !!selectedLovedOne?._id,
+  });
+
+  useEffect(() => {
+    if (selectedLovedOne) {
+      // Prefetch tasks when loved one is selected
+      queryClient.prefetchQuery({
+        queryKey: ["tasks", selectedLovedOne._id],
+        queryFn: () => getTask(selectedLovedOne._id),
+      });
+    }
+  }, [selectedLovedOne]);
+
+  const renderTaskItem = (task) => (
+    <Pressable
+      style={styles.taskItem}
+      onPress={() => navigation.navigate("TaskDetails", { task })}
+    >
+      <LinearGradient
+        colors={["#ffffff", "#f8f9fa"]}
+        style={styles.taskGradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+      >
+        <View style={styles.taskContent}>
+          <View style={styles.taskHeader}>
+            <View style={styles.taskTitleContainer}>
+              <Text style={styles.taskTitle} numberOfLines={1}>
+                {task.title}
+              </Text>
+              <View
+                style={[
+                  styles.priorityBadge,
+                  task.priority === "HIGH" && styles.highPriorityBadge,
+                  task.priority === "MEDIUM" && styles.mediumPriorityBadge,
+                  task.priority === "LOW" && styles.lowPriorityBadge,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.priorityText,
+                    task.priority === "HIGH" && styles.highPriorityText,
+                    task.priority === "MEDIUM" && styles.mediumPriorityText,
+                    task.priority === "LOW" && styles.lowPriorityText,
+                  ]}
+                >
+                  {task.priority}
+                </Text>
+              </View>
+            </View>
+            <View
+              style={[
+                styles.statusBadge,
+                task.status === "COMPLETED" && styles.completedStatusBadge,
+                task.status === "IN_PROGRESS" && styles.inProgressStatusBadge,
+                task.status === "PENDING" && styles.pendingStatusBadge,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.statusText,
+                  task.status === "COMPLETED" && styles.completedStatusText,
+                  task.status === "IN_PROGRESS" && styles.inProgressStatusText,
+                  task.status === "PENDING" && styles.pendingStatusText,
+                ]}
+              >
+                {task.status}
+              </Text>
+            </View>
+          </View>
+
+          {task.description && (
+            <Text style={styles.taskDescription} numberOfLines={2}>
+              {task.description}
+            </Text>
+          )}
+
+          <View style={styles.taskMetadata}>
+            <View style={styles.metadataRow}>
+              <View style={styles.timeContainer}>
+                <Ionicons name="calendar-outline" size={16} color="#666" />
+                <View style={styles.timeTextContainer}>
+                  <Text style={styles.timeLabel}>Due</Text>
+                  <Text style={styles.timeText}>
+                    {new Date(task.due_date).toLocaleDateString([], {
+                      month: "short",
+                      day: "numeric",
+                    })}
+                    {" • "}
+                    {new Date(task.due_date).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      hour12: true,
+                    })}
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.categoryContainer}>
+                <Ionicons name="bookmark-outline" size={16} color="#666" />
+                <Text style={styles.categoryText}>{task.category}</Text>
+              </View>
+            </View>
+
+            <View style={styles.metadataRow}>
+              <View style={styles.assigneeContainer}>
+                <Ionicons name="person-outline" size={16} color="#666" />
+                <Text style={styles.assigneeText} numberOfLines={1}>
+                  {task.assigned_to?.name || "Unassigned"}
+                </Text>
+              </View>
+              <View style={styles.creatorContainer}>
+                <Ionicons name="create-outline" size={16} color="#666" />
+                <Text style={styles.creatorText} numberOfLines={1}>
+                  {task.created_by?.name || "Unknown"}
+                </Text>
+              </View>
+            </View>
+          </View>
+        </View>
+      </LinearGradient>
+    </Pressable>
+  );
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => {
-            navigation.reset({
-              index: 0,
-              routes: [{ name: "Main" }],
-            });
-          }}
-        >
-          <Ionicons name="arrow-back" size={24} color="#000" />
-        </TouchableOpacity>
         <Text style={styles.headerTitle}>Daily Tasks</Text>
-        <TouchableOpacity>
-          <Ionicons name="person-circle-outline" size={24} color="#000" />
-        </TouchableOpacity>
+        <Pressable
+          style={({ pressed }) => [
+            styles.addButton,
+            pressed && { opacity: 0.8 },
+          ]}
+          onPress={() => navigation.navigate("CreateTask")}
+        >
+          <LinearGradient
+            colors={["#4A90E2", "#357ABD"]}
+            style={styles.gradientButton}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+          >
+            <Ionicons name="add" size={24} color="white" />
+          </LinearGradient>
+        </Pressable>
       </View>
 
-      <View style={styles.progressSection}>
-        <View style={styles.profileIcon}>
-          <Ionicons name="person" size={48} color="#4A90E2" />
-        </View>
-        <Text style={styles.progressTitle}>TODAY'S PROGRESS</Text>
-        <View style={styles.progressBar}>
-          <View
-            style={[styles.progressFill, { width: `${progressPercentage}%` }]}
-          />
-        </View>
-        <Text style={styles.progressText}>
-          {progressPercentage.toFixed(0)}% of care plan is completed!
-        </Text>
-      </View>
-
-      <View style={styles.calendarSection}>
-        <View style={styles.monthSelector}>
-          <Text style={styles.monthText}>January 2025</Text>
-          <Ionicons name="chevron-down" size={20} color="#000" />
-        </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          <View style={styles.datesContainer}>
-            {dates.map((item) => (
-              <TouchableOpacity
-                key={item.date}
+      <View style={styles.lovedOneSelector}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.lovedOneList}
+        >
+          {lovedOnes.map((lovedOne) => (
+            <Pressable
+              key={lovedOne._id}
+              style={[
+                styles.lovedOneItem,
+                selectedLovedOne?._id === lovedOne._id &&
+                  styles.selectedLovedOne,
+              ]}
+              onPress={() => setSelectedLovedOne(lovedOne)}
+            >
+              <Text
                 style={[
-                  styles.dateItem,
-                  selectedDate === item.date && styles.selectedDate,
+                  styles.lovedOneName,
+                  selectedLovedOne?._id === lovedOne._id &&
+                    styles.selectedLovedOneName,
                 ]}
-                onPress={() => setSelectedDate(item.date)}
               >
-                <Text
-                  style={[
-                    styles.dayText,
-                    selectedDate === item.date && styles.selectedDateText,
-                  ]}
-                >
-                  {item.day}
-                </Text>
-                <Text
-                  style={[
-                    styles.dateText,
-                    selectedDate === item.date && styles.selectedDateText,
-                  ]}
-                >
-                  {item.date}
-                </Text>
-                {allTasks.filter((task) => task.date === item.date).length >
-                  0 && <View style={styles.taskIndicator} />}
-              </TouchableOpacity>
-            ))}
-          </View>
+                {lovedOne.name}
+              </Text>
+            </Pressable>
+          ))}
         </ScrollView>
       </View>
 
-      <ScrollView style={styles.taskList}>
-        {filteredTasks.length > 0 ? (
-          filteredTasks.map((task) => (
-            <View key={task.id} style={styles.taskItem}>
-              <View style={styles.taskHeader}>
-                <Text
-                  style={[
-                    styles.taskTitle,
-                    task.completed && styles.completedTaskTitle,
-                  ]}
-                >
-                  {task.title}
-                </Text>
-                <TouchableOpacity>
-                  <Ionicons name="ellipsis-horizontal" size={20} color="#666" />
-                </TouchableOpacity>
-              </View>
-              <View style={styles.taskDetails}>
-                <View style={styles.timeContainer}>
-                  <Ionicons name="time-outline" size={16} color="#666" />
-                  <Text style={styles.timeText}>{task.time}</Text>
-                </View>
-                <View style={styles.assigneeContainer}>
-                  <Text style={styles.assigneeLabel}>Assigned to</Text>
-                  <Text style={styles.assigneeName}>{task.assignedTo}</Text>
-                </View>
-              </View>
-              <TouchableOpacity
-                style={[styles.checkbox, task.completed && styles.checkedBox]}
-              >
-                {task.completed && (
-                  <Ionicons name="checkmark" size={16} color="white" />
-                )}
-              </TouchableOpacity>
+      {selectedLovedOne ? (
+        <ScrollView style={styles.taskList}>
+          {isLoading ? (
+            <View style={styles.noTasksContainer}>
+              <Text style={styles.noTasksText}>Loading tasks...</Text>
             </View>
-          ))
-        ) : (
-          <View style={styles.noTasksContainer}>
-            <Text style={styles.noTasksText}>No tasks for this date</Text>
-          </View>
-        )}
-      </ScrollView>
+          ) : error ? (
+            <View style={styles.noTasksContainer}>
+              <Text style={[styles.noTasksText, styles.errorText]}>
+                {error.message}
+              </Text>
+            </View>
+          ) : tasks.pending.length > 0 || tasks.completed.length > 0 ? (
+            <>
+              {tasks.pending.length > 0 && (
+                <View style={styles.sectionContainer}>
+                  <Text style={styles.sectionTitle}>Pending Tasks</Text>
+                  {tasks.pending.map((task, index) => (
+                    <View key={task._id || `pending-${index}`}>
+                      {renderTaskItem(task)}
+                    </View>
+                  ))}
+                </View>
+              )}
 
-      <TouchableOpacity
-        style={styles.addButton}
-        onPress={() => navigation.navigate("CreateTask")}
-      >
-        <Text style={styles.addButtonText}>+ New Task</Text>
-      </TouchableOpacity>
+              {tasks.completed.length > 0 && (
+                <View style={styles.sectionContainer}>
+                  <Text style={styles.sectionTitle}>Completed Tasks</Text>
+                  {tasks.completed.map((task, index) => (
+                    <View key={task._id || `completed-${index}`}>
+                      {renderTaskItem(task)}
+                    </View>
+                  ))}
+                </View>
+              )}
+            </>
+          ) : (
+            <View style={styles.noTasksContainer}>
+              <Ionicons name="calendar-outline" size={48} color="#999" />
+              <Text style={styles.noTasksText}>No tasks for today</Text>
+            </View>
+          )}
+        </ScrollView>
+      ) : (
+        <View style={styles.noTasksContainer}>
+          <Text style={styles.noTasksText}>Please select a loved one</Text>
+        </View>
+      )}
     </SafeAreaView>
   );
 };
@@ -202,195 +281,236 @@ const DailyTasksScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F5F6FA",
+    backgroundColor: "#f5f5f5",
   },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 15,
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: "600",
-  },
-  progressSection: {
-    padding: 16,
-    alignItems: "center",
-  },
-  profileIcon: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: "#E1E1E1",
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  progressTitle: {
-    fontSize: 16,
-    color: "#666",
-    marginBottom: 8,
-  },
-  progressBar: {
-    width: "100%",
-    height: 8,
-    backgroundColor: "#E1E1E1",
-    borderRadius: 4,
-    marginVertical: 8,
-  },
-  progressFill: {
-    height: "100%",
-    backgroundColor: "#4A90E2",
-    borderRadius: 4,
-  },
-  progressText: {
-    fontSize: 16,
-    color: "#333",
-    marginTop: 8,
-  },
-  calendarSection: {
-    padding: 16,
-  },
-  monthSelector: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  monthText: {
-    fontSize: 18,
-    fontWeight: "600",
-    marginRight: 8,
-  },
-  datesContainer: {
-    flexDirection: "row",
-    marginHorizontal: -4,
-  },
-  dateItem: {
-    width: 64,
-    height: 80,
-    borderRadius: 32,
-    backgroundColor: "white",
-    justifyContent: "center",
-    alignItems: "center",
-    marginHorizontal: 4,
-  },
-  selectedDate: {
-    backgroundColor: "#4A90E2",
-  },
-  dayText: {
-    fontSize: 12,
-    color: "#666",
-    marginBottom: 4,
-  },
-  dateText: {
-    fontSize: 18,
-    fontWeight: "600",
+    fontSize: 28,
+    fontWeight: "700",
     color: "#333",
   },
-  selectedDateText: {
+  addButton: {
+    borderRadius: 12,
+    overflow: "hidden",
+  },
+  gradientButton: {
+    padding: 12,
+    borderRadius: 12,
+  },
+  lovedOneSelector: {
+    marginBottom: 20,
+  },
+  lovedOneList: {
+    paddingHorizontal: 20,
+    gap: 10,
+  },
+  lovedOneItem: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: "#f0f0f0",
+  },
+  selectedLovedOne: {
+    backgroundColor: "#4A90E2",
+  },
+  lovedOneName: {
+    fontSize: 16,
+    color: "#333",
+    fontWeight: "600",
+  },
+  selectedLovedOneName: {
     color: "white",
   },
   taskList: {
     flex: 1,
-    padding: 16,
+    paddingHorizontal: 20,
   },
   taskItem: {
+    marginBottom: 15,
+    borderRadius: 16,
+    overflow: "hidden",
     backgroundColor: "white",
-    borderRadius: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  taskGradient: {
     padding: 16,
-    marginBottom: 12,
-    position: "relative",
+  },
+  taskContent: {
+    gap: 12,
   },
   taskHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: 12,
+    gap: 8,
+  },
+  taskTitleContainer: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
   taskTitle: {
-    fontSize: 16,
-    fontWeight: "500",
     flex: 1,
-    marginRight: 8,
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#333",
   },
-  completedTaskTitle: {
+  priorityBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    backgroundColor: "#E8F5E9",
+  },
+  highPriorityBadge: {
+    backgroundColor: "#FFEBEE",
+  },
+  mediumPriorityBadge: {
+    backgroundColor: "#FFF3E0",
+  },
+  lowPriorityBadge: {
+    backgroundColor: "#E8F5E9",
+  },
+  priorityText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#2E7D32",
+  },
+  highPriorityText: {
+    color: "#D32F2F",
+  },
+  mediumPriorityText: {
+    color: "#F57C00",
+  },
+  lowPriorityText: {
+    color: "#2E7D32",
+  },
+  statusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
+    backgroundColor: "#E8F5E9",
+  },
+  completedStatusBadge: {
+    backgroundColor: "#E8F5E9",
+  },
+  inProgressStatusBadge: {
+    backgroundColor: "#E3F2FD",
+  },
+  pendingStatusBadge: {
+    backgroundColor: "#FFF3E0",
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#2E7D32",
+  },
+  completedStatusText: {
+    color: "#2E7D32",
+  },
+  inProgressStatusText: {
+    color: "#1976D2",
+  },
+  pendingStatusText: {
+    color: "#F57C00",
+  },
+  taskDescription: {
+    fontSize: 14,
     color: "#666",
+    lineHeight: 20,
   },
-  strikethrough: {
-    textDecorationLine: "line-through",
+  taskMetadata: {
+    gap: 8,
   },
-  taskDetails: {
+  metadataRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
   },
   timeContainer: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
+    gap: 6,
+  },
+  timeTextContainer: {
+    flex: 1,
+  },
+  timeLabel: {
+    fontSize: 12,
+    color: "#999",
+    marginBottom: 2,
   },
   timeText: {
-    marginLeft: 4,
+    fontSize: 14,
+    color: "#666",
+    fontWeight: "500",
+  },
+  categoryContainer: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    justifyContent: "flex-end",
+  },
+  categoryText: {
+    fontSize: 14,
     color: "#666",
   },
   assigneeContainer: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
+    gap: 6,
   },
-  assigneeLabel: {
+  assigneeText: {
+    fontSize: 14,
     color: "#666",
-    marginRight: 4,
   },
-  assigneeName: {
-    color: "#4A90E2",
-  },
-  checkbox: {
-    position: "absolute",
-    right: 16,
-    top: "50%",
-    marginTop: -12,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: "#4A90E2",
-    justifyContent: "center",
+  creatorContainer: {
+    flex: 1,
+    flexDirection: "row",
     alignItems: "center",
+    gap: 6,
+    justifyContent: "flex-end",
   },
-  checkedBox: {
-    backgroundColor: "#4A90E2",
-    borderColor: "#4A90E2",
-  },
-  addButton: {
-    margin: 16,
-    backgroundColor: "#4A90E2",
-    padding: 16,
-    borderRadius: 8,
-    alignItems: "center",
-  },
-  addButtonText: {
-    color: "white",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  taskIndicator: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: "#4A90E2",
-    position: "absolute",
-    bottom: 8,
+  creatorText: {
+    fontSize: 14,
+    color: "#666",
   },
   noTasksContainer: {
     flex: 1,
-    justifyContent: "center",
     alignItems: "center",
-    paddingVertical: 32,
+    justifyContent: "center",
+    paddingVertical: 40,
   },
   noTasksText: {
     fontSize: 16,
     color: "#666",
-    textAlign: "center",
+    marginTop: 12,
+  },
+  sectionContainer: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 12,
+    marginLeft: 4,
+  },
+  errorText: {
+    color: "#F57C00",
   },
 });
 
