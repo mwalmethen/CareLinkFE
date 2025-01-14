@@ -24,47 +24,122 @@ import { getAllLovedOnes } from "../api/Users";
 import { useUser } from "../api/UserContext";
 import { LinearGradient } from "expo-linear-gradient";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import DropDownPicker from "react-native-dropdown-picker";
 
-const StatusBadge = ({ status, type = "plan" }) => {
-  const getStatusColor = () => {
-    if (type === "plan") {
-      switch (status) {
-        case "DRAFT":
-          return "#FFA500";
-        case "ACTIVE":
-          return "#4CAF50";
-        case "COMPLETED":
-          return "#2196F3";
-        case "ARCHIVED":
-          return "#9E9E9E";
-        default:
-          return "#9E9E9E";
-      }
-    } else {
-      switch (status) {
-        case "PENDING":
-          return "#FFA500";
-        case "IN_PROGRESS":
-          return "#2196F3";
-        case "COMPLETED":
-          return "#4CAF50";
-        default:
-          return "#9E9E9E";
-      }
+const getStatusColor = (status, type = "plan") => {
+  const planStatusColors = {
+    DRAFT: "#F59E0B",
+    ACTIVE: "#059669",
+    COMPLETED: "#2563EB",
+    ARCHIVED: "#6B7280",
+  };
+
+  const goalStatusColors = {
+    PENDING: "#F59E0B",
+    IN_PROGRESS: "#2563EB",
+    COMPLETED: "#059669",
+  };
+
+  return type === "plan" ? planStatusColors[status] : goalStatusColors[status];
+};
+
+const StatusBadge = ({ status, type = "plan" }) => (
+  <View
+    style={[styles.badge, { backgroundColor: getStatusColor(status, type) }]}
+  >
+    <Text style={styles.badgeText}>{status}</Text>
+  </View>
+);
+
+const FormDatePicker = ({ label, value, onChange, style }) => {
+  const [show, setShow] = useState(false);
+  const date = value ? new Date(value) : new Date();
+
+  const handleDateChange = (event, selectedDate) => {
+    const currentDate = selectedDate || date;
+    if (Platform.OS === "android") {
+      setShow(false);
     }
+    onChange(currentDate);
+  };
+
+  const showDatepicker = () => {
+    setShow(true);
   };
 
   return (
-    <View style={[styles.badge, { backgroundColor: getStatusColor() }]}>
-      <Text style={styles.badgeText}>{status}</Text>
+    <View style={[styles.datePickerContainer, style]}>
+      <Text style={styles.inputLabel}>{label}</Text>
+      <TouchableOpacity style={styles.dateButton} onPress={showDatepicker}>
+        <Text style={[styles.dateText, { color: "#1F2937" }]}>
+          {date.toLocaleDateString("en-US", {
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          })}
+        </Text>
+        <Ionicons name="calendar-outline" size={20} color="#4A90E2" />
+      </TouchableOpacity>
+
+      {Platform.OS === "ios" ? (
+        <Modal visible={show} transparent={true} animationType="slide">
+          <View style={styles.modalOverlay}>
+            <View style={styles.pickerCard}>
+              <View style={styles.pickerHeader}>
+                <Text style={styles.pickerTitle}>Select {label}</Text>
+              </View>
+              <View style={styles.pickerWrapper}>
+                <DateTimePicker
+                  value={date}
+                  mode="date"
+                  display="spinner"
+                  onChange={handleDateChange}
+                  style={{ width: 320, height: 180 }}
+                  textColor="#000000"
+                />
+              </View>
+              <View style={styles.pickerFooter}>
+                <TouchableOpacity
+                  style={[
+                    styles.footerButton,
+                    { borderRightWidth: 1, borderRightColor: "#E2E8F0" },
+                  ]}
+                  onPress={() => setShow(false)}
+                >
+                  <Text style={[styles.footerButtonText, { color: "#EF4444" }]}>
+                    Cancel
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.footerButton}
+                  onPress={() => setShow(false)}
+                >
+                  <Text style={[styles.footerButtonText, { color: "#3B82F6" }]}>
+                    Confirm
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      ) : (
+        show && (
+          <DateTimePicker
+            testID="dateTimePicker"
+            value={date}
+            mode="date"
+            display="default"
+            onChange={handleDateChange}
+          />
+        )
+      )}
     </View>
   );
 };
 
 const CarePlanScreen = ({ navigation, route }) => {
-  const [selectedLovedOne, setSelectedLovedOne] = useState(
-    route.params?.lovedOne || null
-  );
+  const [selectedLovedOne, setSelectedLovedOne] = useState(null);
+  const [lovedOneOpen, setLovedOneOpen] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [formData, setFormData] = useState({
     title: "",
@@ -84,6 +159,8 @@ const CarePlanScreen = ({ navigation, route }) => {
     target_date: new Date(),
     status: "PENDING",
   });
+
+  const [lovedOneValue, setLovedOneValue] = useState(null);
 
   const statusOptions = {
     carePlan: ["DRAFT", "ACTIVE", "COMPLETED", "ARCHIVED"],
@@ -108,81 +185,114 @@ const CarePlanScreen = ({ navigation, route }) => {
     enabled: !!selectedLovedOne?._id,
   });
 
-  const [showStartDatePicker, setShowStartDatePicker] = useState(false);
-  const [showEndDatePicker, setShowEndDatePicker] = useState(false);
-  const [showGoalDatePicker, setShowGoalDatePicker] = useState(false);
-
-  const handleStartDateChange = (event, selectedDate) => {
-    setShowStartDatePicker(false);
-    if (selectedDate) {
-      setFormData({
-        ...formData,
-        schedule: {
-          ...formData.schedule,
-          start_date: selectedDate,
-        },
-      });
-    }
-  };
-
-  const handleEndDateChange = (event, selectedDate) => {
-    setShowEndDatePicker(false);
-    if (selectedDate) {
-      setFormData({
-        ...formData,
-        schedule: {
-          ...formData.schedule,
-          end_date: selectedDate,
-        },
-      });
-    }
-  };
-
-  const handleGoalDateChange = (event, selectedDate) => {
-    setShowGoalDatePicker(false);
-    if (selectedDate) {
-      setCurrentGoal({
-        ...currentGoal,
-        target_date: selectedDate,
-      });
-    }
-  };
-
   const handleAddCarePlan = async () => {
-    if (!formData.title) {
-      Alert.alert("Error", "Title is required");
-      return;
-    }
-
     try {
+      // Validate title
+      if (!formData.title.trim()) {
+        Alert.alert("Validation Error", "Please enter a care plan title");
+        return;
+      }
+
+      // Validate loved one selection
+      if (!selectedLovedOne || !selectedLovedOne._id) {
+        Alert.alert("Validation Error", "Please select a loved one");
+        return;
+      }
+
+      // Validate description
+      if (!formData.description.trim()) {
+        Alert.alert("Validation Error", "Please enter a care plan description");
+        return;
+      }
+
+      // Validate dates
+      if (!formData.schedule.start_date || !formData.schedule.end_date) {
+        Alert.alert(
+          "Validation Error",
+          "Please select both start and end dates"
+        );
+        return;
+      }
+
+      if (formData.schedule.end_date < formData.schedule.start_date) {
+        Alert.alert("Validation Error", "End date cannot be before start date");
+        return;
+      }
+
+      // Prepare care plan data
       const carePlanData = {
-        ...formData,
+        title: formData.title.trim(),
+        description: formData.description.trim(),
         loved_one: selectedLovedOne._id,
         created_by: user._id,
+        goals: formData.goals.map((goal) => ({
+          title: goal.title.trim(),
+          description: goal.description.trim(),
+          target_date: goal.target_date,
+          status: goal.status,
+        })),
         schedule: {
           start_date: formData.schedule.start_date,
           end_date: formData.schedule.end_date,
         },
+        status: formData.status || "DRAFT",
+        notes: formData.notes.trim(),
       };
 
-      await createCarePlan(carePlanData);
-      queryClient.invalidateQueries(["carePlans", selectedLovedOne._id]);
+      console.log("Creating care plan with data:", carePlanData);
+      const newCarePlan = await createCarePlan(carePlanData);
+      console.log("Care plan created successfully:", newCarePlan);
+
+      await queryClient.invalidateQueries(["carePlans", selectedLovedOne._id]);
+
+      // Reset form
+      setFormData({
+        title: "",
+        description: "",
+        goals: [],
+        schedule: {
+          start_date: new Date(),
+          end_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        },
+        status: "DRAFT",
+        notes: "",
+      });
+
       setModalVisible(false);
-      Alert.alert("Success", "Care plan created successfully!");
+
+      Alert.alert(
+        "Success",
+        `Care plan "${newCarePlan.title}" has been created successfully!`,
+        [{ text: "OK" }]
+      );
     } catch (error) {
-      Alert.alert("Error", error.message || "Failed to create care plan");
+      console.error("Error creating care plan:", error);
+      Alert.alert(
+        "Error Creating Care Plan",
+        error.response?.data?.message ||
+          error.message ||
+          "An unexpected error occurred while creating the care plan. Please try again.",
+        [{ text: "OK" }]
+      );
     }
   };
 
   const handleAddGoal = () => {
-    if (!currentGoal.title) {
+    if (!currentGoal.title.trim()) {
       Alert.alert("Error", "Goal title is required");
       return;
     }
 
     setFormData((prev) => ({
       ...prev,
-      goals: [...prev.goals, currentGoal],
+      goals: [
+        ...prev.goals,
+        {
+          ...currentGoal,
+          title: currentGoal.title.trim(),
+          description: currentGoal.description.trim(),
+        },
+      ],
     }));
 
     setCurrentGoal({
@@ -362,10 +472,40 @@ const CarePlanScreen = ({ navigation, route }) => {
                     setFormData({ ...formData, title: text })
                   }
                   placeholder="Enter care plan title"
+                  placeholderTextColor="#666666"
                 />
               </View>
 
-              <View style={styles.inputContainer}>
+              <View style={[styles.inputContainer, { zIndex: 1 }]}>
+                <Text style={styles.inputLabel}>Select Loved One</Text>
+                <DropDownPicker
+                  open={lovedOneOpen}
+                  value={lovedOneValue}
+                  items={lovedOnes.map((lovedOne) => ({
+                    label: lovedOne.name,
+                    value: lovedOne._id,
+                  }))}
+                  setOpen={setLovedOneOpen}
+                  setValue={setLovedOneValue}
+                  onSelectItem={(item) => {
+                    const selected = lovedOnes.find(
+                      (l) => l._id === item.value
+                    );
+                    setSelectedLovedOne(selected);
+                  }}
+                  placeholder="Select Loved One"
+                  style={styles.dropdown}
+                  dropDownContainerStyle={styles.dropdownContainer}
+                  textStyle={styles.dropdownText}
+                  placeholderStyle={styles.dropdownPlaceholder}
+                  listMode="SCROLLVIEW"
+                  position="bottom"
+                  zIndex={1}
+                  zIndexInverse={3000}
+                />
+              </View>
+
+              <View style={[styles.inputContainer, { zIndex: 2000 }]}>
                 <Text style={styles.inputLabel}>Description</Text>
                 <TextInput
                   style={[styles.input, styles.textArea]}
@@ -374,51 +514,39 @@ const CarePlanScreen = ({ navigation, route }) => {
                     setFormData({ ...formData, description: text })
                   }
                   placeholder="Enter care plan description"
+                  placeholderTextColor="#666666"
                   multiline
                 />
               </View>
 
-              <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Start Date</Text>
-                <TouchableOpacity
-                  style={styles.dateButton}
-                  onPress={() => setShowStartDatePicker(true)}
-                >
-                  <Text style={styles.dateText}>
-                    {formData.schedule.start_date.toLocaleDateString()}
-                  </Text>
-                  <Ionicons name="calendar-outline" size={20} color="#4A90E2" />
-                </TouchableOpacity>
-                {showStartDatePicker && (
-                  <DateTimePicker
-                    value={formData.schedule.start_date}
-                    mode="date"
-                    is24Hour={true}
-                    onChange={handleStartDateChange}
-                  />
-                )}
-              </View>
+              <FormDatePicker
+                label="Start Date"
+                value={formData.schedule.start_date}
+                onChange={(date) =>
+                  setFormData({
+                    ...formData,
+                    schedule: {
+                      ...formData.schedule,
+                      start_date: date,
+                    },
+                  })
+                }
+              />
 
-              <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>End Date</Text>
-                <TouchableOpacity
-                  style={styles.dateButton}
-                  onPress={() => setShowEndDatePicker(true)}
-                >
-                  <Text style={styles.dateText}>
-                    {formData.schedule.end_date.toLocaleDateString()}
-                  </Text>
-                  <Ionicons name="calendar-outline" size={20} color="#4A90E2" />
-                </TouchableOpacity>
-                {showEndDatePicker && (
-                  <DateTimePicker
-                    value={formData.schedule.end_date}
-                    mode="date"
-                    is24Hour={true}
-                    onChange={handleEndDateChange}
-                  />
-                )}
-              </View>
+              <FormDatePicker
+                label="End Date"
+                value={formData.schedule.end_date}
+                onChange={(date) =>
+                  setFormData({
+                    ...formData,
+                    schedule: {
+                      ...formData.schedule,
+                      end_date: date,
+                    },
+                  })
+                }
+                style={{ marginTop: 16 }}
+              />
 
               <View style={styles.inputContainer}>
                 <Text style={styles.inputLabel}>Status</Text>
@@ -428,7 +556,28 @@ const CarePlanScreen = ({ navigation, route }) => {
                       key={status}
                       style={[
                         styles.statusOption,
-                        formData.status === status && styles.selectedStatus,
+                        formData.status === status && {
+                          backgroundColor:
+                            status === "ACTIVE"
+                              ? "#059669"
+                              : status === "DRAFT"
+                              ? "#F59E0B"
+                              : status === "COMPLETED"
+                              ? "#2563EB"
+                              : status === "ARCHIVED"
+                              ? "#6B7280"
+                              : "#F59E0B",
+                          borderColor:
+                            status === "ACTIVE"
+                              ? "#047857"
+                              : status === "DRAFT"
+                              ? "#D97706"
+                              : status === "COMPLETED"
+                              ? "#1E40AF"
+                              : status === "ARCHIVED"
+                              ? "#4B5563"
+                              : "#D97706",
+                        },
                       ]}
                       onPress={() =>
                         setFormData({ ...formData, status: status })
@@ -457,6 +606,7 @@ const CarePlanScreen = ({ navigation, route }) => {
                     setFormData({ ...formData, notes: text })
                   }
                   placeholder="Enter additional notes"
+                  placeholderTextColor="#666666"
                   multiline
                 />
               </View>
@@ -466,16 +616,6 @@ const CarePlanScreen = ({ navigation, route }) => {
                   <Text style={styles.sectionTitle}>
                     Goals ({formData.goals.length})
                   </Text>
-                  <TouchableOpacity
-                    style={styles.addGoalButton}
-                    onPress={handleAddGoal}
-                  >
-                    <Ionicons
-                      name="add-circle-outline"
-                      size={24}
-                      color="#4A90E2"
-                    />
-                  </TouchableOpacity>
                 </View>
 
                 {/* Goal Input Form */}
@@ -487,6 +627,7 @@ const CarePlanScreen = ({ navigation, route }) => {
                       setCurrentGoal({ ...currentGoal, title: text })
                     }
                     placeholder="Enter goal title"
+                    placeholderTextColor="#666666"
                   />
                   <TextInput
                     style={[styles.input, styles.textArea]}
@@ -495,30 +636,18 @@ const CarePlanScreen = ({ navigation, route }) => {
                       setCurrentGoal({ ...currentGoal, description: text })
                     }
                     placeholder="Enter goal description"
+                    placeholderTextColor="#666666"
                     multiline
                   />
-                  <TouchableOpacity
-                    style={styles.dateButton}
-                    onPress={() => setShowGoalDatePicker(true)}
-                  >
-                    <Text style={styles.dateText}>
-                      Target Date:{" "}
-                      {currentGoal.target_date.toLocaleDateString()}
-                    </Text>
-                    <Ionicons
-                      name="calendar-outline"
-                      size={20}
-                      color="#4A90E2"
-                    />
-                  </TouchableOpacity>
-                  {showGoalDatePicker && (
-                    <DateTimePicker
-                      value={currentGoal.target_date}
-                      mode="date"
-                      is24Hour={true}
-                      onChange={handleGoalDateChange}
-                    />
-                  )}
+
+                  <FormDatePicker
+                    label="Target Date"
+                    value={currentGoal.target_date}
+                    onChange={(date) =>
+                      setCurrentGoal({ ...currentGoal, target_date: date })
+                    }
+                    style={{ marginVertical: 16 }}
+                  />
 
                   <View style={styles.statusSelector}>
                     {statusOptions.goal.map((status) => (
@@ -526,8 +655,24 @@ const CarePlanScreen = ({ navigation, route }) => {
                         key={status}
                         style={[
                           styles.statusOption,
-                          currentGoal.status === status &&
-                            styles.selectedStatus,
+                          currentGoal.status === status && {
+                            backgroundColor:
+                              status === "PENDING"
+                                ? "#F59E0B"
+                                : status === "IN_PROGRESS"
+                                ? "#2563EB"
+                                : status === "COMPLETED"
+                                ? "#059669"
+                                : "#F59E0B",
+                            borderColor:
+                              status === "PENDING"
+                                ? "#D97706"
+                                : status === "IN_PROGRESS"
+                                ? "#1E40AF"
+                                : status === "COMPLETED"
+                                ? "#047857"
+                                : "#D97706",
+                          },
                         ]}
                         onPress={() =>
                           setCurrentGoal({ ...currentGoal, status: status })
@@ -545,6 +690,18 @@ const CarePlanScreen = ({ navigation, route }) => {
                       </Pressable>
                     ))}
                   </View>
+
+                  <Pressable
+                    style={[styles.addGoalButton, { marginTop: 16 }]}
+                    onPress={handleAddGoal}
+                  >
+                    <Ionicons
+                      name="add-circle-outline"
+                      size={24}
+                      color="#4A90E2"
+                    />
+                    <Text style={styles.addGoalText}>Add Goal</Text>
+                  </Pressable>
                 </View>
 
                 {/* Goals List */}
@@ -552,7 +709,21 @@ const CarePlanScreen = ({ navigation, route }) => {
                   <View key={index} style={styles.goalItem}>
                     <View style={styles.goalHeader}>
                       <Text style={styles.goalTitle}>{goal.title}</Text>
-                      <StatusBadge status={goal.status} type="goal" />
+                      <View
+                        style={[
+                          styles.statusBadge,
+                          {
+                            backgroundColor: getStatusColor(
+                              goal.status,
+                              "goal"
+                            ),
+                          },
+                        ]}
+                      >
+                        <Text style={styles.statusBadgeText}>
+                          {goal.status}
+                        </Text>
+                      </View>
                     </View>
                     {goal.description && (
                       <Text style={styles.goalDescription}>
@@ -560,8 +731,7 @@ const CarePlanScreen = ({ navigation, route }) => {
                       </Text>
                     )}
                     <Text style={styles.goalDate}>
-                      Target Date:{" "}
-                      {new Date(goal.target_date).toLocaleDateString()}
+                      Target Date: {goal.target_date.toLocaleDateString()}
                     </Text>
                   </View>
                 ))}
@@ -592,66 +762,74 @@ const CarePlanScreen = ({ navigation, route }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
+    backgroundColor: "#F5F7FA",
   },
   header: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    backgroundColor: "#fff",
+    borderBottomWidth: 1,
+    borderBottomColor: "#E2E8F0",
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 15,
   },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: "700",
-    color: "#333",
+    color: "#1F2937",
   },
   addButton: {
-    borderRadius: 12,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     overflow: "hidden",
   },
   gradientButton: {
-    padding: 12,
-    borderRadius: 12,
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#4A90E2",
   },
   lovedOneSelector: {
-    marginBottom: 20,
+    maxHeight: 60,
+    marginTop: 8,
   },
   lovedOneList: {
-    paddingHorizontal: 20,
-    gap: 10,
+    paddingVertical: 4,
+    gap: 8,
   },
   lovedOneItem: {
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: "#f0f0f0",
+    backgroundColor: "#F3F4F6",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
   },
   selectedLovedOne: {
     backgroundColor: "#4A90E2",
+    borderColor: "#357ABD",
   },
   lovedOneName: {
-    fontSize: 16,
-    color: "#333",
+    fontSize: 14,
     fontWeight: "600",
+    color: "#4B5563",
   },
   selectedLovedOneName: {
-    color: "white",
+    color: "#FFFFFF",
   },
   carePlanList: {
     flex: 1,
     paddingHorizontal: 20,
   },
   carePlanItem: {
-    marginBottom: 15,
-    borderRadius: 16,
+    marginBottom: 16,
+    borderRadius: 20,
     overflow: "hidden",
     backgroundColor: "white",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.08)",
   },
   carePlanGradient: {
     padding: 16,
@@ -667,12 +845,12 @@ const styles = StyleSheet.create({
   carePlanTitle: {
     fontSize: 18,
     fontWeight: "600",
-    color: "#333",
+    color: "#111827",
     flex: 1,
   },
   description: {
     fontSize: 14,
-    color: "#666",
+    color: "#374151",
     marginBottom: 12,
   },
   scheduleContainer: {
@@ -706,26 +884,29 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   goalItem: {
-    backgroundColor: "#f8f9fa",
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 8,
+    backgroundColor: "#F9FAFB",
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
   },
   goalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 4,
+    marginBottom: 8,
   },
   goalTitle: {
-    fontSize: 14,
-    fontWeight: "500",
-    color: "#333",
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#1F2937",
     flex: 1,
   },
   goalDescription: {
-    fontSize: 12,
-    color: "#666",
+    fontSize: 14,
+    color: "#4B5563",
+    marginBottom: 8,
   },
   moreGoals: {
     fontSize: 12,
@@ -759,15 +940,15 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(0,0,0,0.5)",
   },
   modalContent: {
-    backgroundColor: "white",
+    backgroundColor: "#fff",
     borderRadius: 20,
     width: "90%",
-    maxHeight: "80%",
+    maxHeight: "90%",
   },
   modalHeader: {
     flexDirection: "row",
@@ -775,12 +956,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
+    borderBottomColor: "#E2E8F0",
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: "600",
-    color: "#333",
+    color: "#1F2937",
   },
   closeButton: {
     padding: 4,
@@ -792,45 +973,49 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   inputLabel: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: "500",
-    color: "#333",
+    color: "#1F2937",
     marginBottom: 8,
   },
   input: {
     borderWidth: 1,
-    borderColor: "#e0e0e0",
-    borderRadius: 8,
+    borderColor: "#E5E7EB",
+    borderRadius: 12,
     padding: 12,
     fontSize: 16,
+    color: "#1F2937",
+    backgroundColor: "#fff",
   },
   textArea: {
     height: 100,
     textAlignVertical: "top",
+    color: "#1F2937",
   },
   modalFooter: {
     flexDirection: "row",
     padding: 20,
     borderTopWidth: 1,
-    borderTopColor: "#f0f0f0",
+    borderTopColor: "#E2E8F0",
     gap: 12,
   },
   modalButton: {
     flex: 1,
     padding: 12,
-    borderRadius: 8,
+    borderRadius: 12,
     alignItems: "center",
+    justifyContent: "center",
   },
   cancelButton: {
-    backgroundColor: "#EA4335",
+    backgroundColor: "#DC2626",
   },
   submitButton: {
-    backgroundColor: "#4A90E2",
+    backgroundColor: "#059669",
   },
   buttonText: {
-    color: "white",
     fontSize: 16,
     fontWeight: "600",
+    color: "#FFFFFF",
   },
   pressed: {
     opacity: 0.8,
@@ -839,15 +1024,16 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "#f8f9fa",
+    backgroundColor: "#fff",
     padding: 12,
-    borderRadius: 8,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#ddd",
+    borderColor: "#E5E7EB",
   },
   dateText: {
     fontSize: 16,
-    color: "#333",
+    color: "#1F2937",
+    fontWeight: "500",
   },
   statusSelector: {
     flexDirection: "row",
@@ -860,18 +1046,46 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: "#ddd",
+    borderColor: "#E5E7EB",
+    backgroundColor: "#F9FAFB",
   },
   selectedStatus: {
-    backgroundColor: "#4A90E2",
-    borderColor: "#4A90E2",
+    backgroundColor: (props) => {
+      switch (props.status) {
+        case "ACTIVE":
+          return "#059669";
+        case "DRAFT":
+          return "#F59E0B";
+        case "COMPLETED":
+          return "#2563EB";
+        case "ARCHIVED":
+          return "#6B7280";
+        default:
+          return "#F59E0B";
+      }
+    },
+    borderColor: (props) => {
+      switch (props.status) {
+        case "ACTIVE":
+          return "#047857";
+        case "DRAFT":
+          return "#D97706";
+        case "COMPLETED":
+          return "#1E40AF";
+        case "ARCHIVED":
+          return "#4B5563";
+        default:
+          return "#D97706";
+      }
+    },
   },
   statusText: {
-    color: "#666",
     fontSize: 14,
+    fontWeight: "600",
+    color: "#1F2937",
   },
   selectedStatusText: {
-    color: "#fff",
+    color: "#FFFFFF",
   },
   goalsSection: {
     marginTop: 24,
@@ -885,22 +1099,31 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: "600",
-    color: "#333",
+    color: "#1F2937",
   },
   addGoalButton: {
-    padding: 8,
-  },
-  goalForm: {
-    backgroundColor: "#f8f9fa",
-    padding: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#F9FAFB",
+    padding: 12,
     borderRadius: 12,
-    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "#4A90E2",
+  },
+  addGoalText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#4A90E2",
+    marginLeft: 8,
   },
   goalItem: {
-    backgroundColor: "#f8f9fa",
+    backgroundColor: "#F9FAFB",
     padding: 16,
     borderRadius: 12,
     marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
   },
   goalHeader: {
     flexDirection: "row",
@@ -911,16 +1134,150 @@ const styles = StyleSheet.create({
   goalTitle: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#333",
+    color: "#1F2937",
     flex: 1,
   },
   goalDescription: {
-    color: "#666",
+    fontSize: 14,
+    color: "#4B5563",
     marginBottom: 8,
   },
   goalDate: {
-    color: "#666",
     fontSize: 14,
+    color: "#6B7280",
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  statusBadgeText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  datePickerContainer: {
+    marginBottom: 16,
+  },
+  pickerCard: {
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    width: "90%",
+    maxHeight: 400,
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 5,
+      },
+    }),
+  },
+  pickerHeader: {
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    backgroundColor: "#4A90E2",
+    alignItems: "center",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+  },
+  pickerTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#fff",
+  },
+  pickerWrapper: {
+    backgroundColor: "#fff",
+    paddingVertical: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    height: 250,
+  },
+  picker: {
+    width: "100%",
+    height: 200,
+  },
+  pickerFooter: {
+    flexDirection: "row",
+    borderTopWidth: 1,
+    borderTopColor: "#E2E8F0",
+  },
+  footerButton: {
+    flex: 1,
+    padding: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  footerButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  centeredPickerContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    width: "100%",
+  },
+  lovedOneOption: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    backgroundColor: "#F9FAFB",
+    marginRight: 8,
+  },
+  lovedOneOptionText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#4B5563",
+  },
+  selectedLovedOne: {
+    backgroundColor: "#4A90E2",
+    borderColor: "#357ABD",
+  },
+  selectedLovedOneName: {
+    color: "#FFFFFF",
+  },
+  lovedOneList: {
+    paddingVertical: 8,
+  },
+  dropdown: {
+    borderWidth: 1,
+    borderColor: "#E1E1E1",
+    borderRadius: 12,
+    backgroundColor: "white",
+    minHeight: 50,
+  },
+  dropdownContainer: {
+    borderWidth: 1,
+    borderColor: "#E1E1E1",
+    borderRadius: 12,
+    backgroundColor: "white",
+    elevation: 5,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    position: "relative",
+    top: 0,
+  },
+  dropdownText: {
+    fontSize: 16,
+    color: "#333",
+  },
+  dropdownPlaceholder: {
+    color: "#666666",
+    fontSize: 16,
   },
 });
 
