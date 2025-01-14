@@ -9,32 +9,47 @@ import {
   TextInput,
   Alert,
   Pressable,
+  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { getCarePlans, createCarePlan, updateCarePlan, deleteCarePlan } from "../api/CarePlan";
+import {
+  getCarePlans,
+  createCarePlan,
+  updateCarePlan,
+  deleteCarePlan,
+} from "../api/CarePlan";
 import { getAllLovedOnes } from "../api/Users";
 import { useUser } from "../api/UserContext";
 import { LinearGradient } from "expo-linear-gradient";
-import DateTimePicker from '@react-native-community/datetimepicker';
+import DateTimePicker from "@react-native-community/datetimepicker";
 
 const StatusBadge = ({ status, type = "plan" }) => {
   const getStatusColor = () => {
     if (type === "plan") {
       switch (status) {
-        case "DRAFT": return "#FFA500";
-        case "ACTIVE": return "#4CAF50";
-        case "COMPLETED": return "#2196F3";
-        case "ARCHIVED": return "#9E9E9E";
-        default: return "#9E9E9E";
+        case "DRAFT":
+          return "#FFA500";
+        case "ACTIVE":
+          return "#4CAF50";
+        case "COMPLETED":
+          return "#2196F3";
+        case "ARCHIVED":
+          return "#9E9E9E";
+        default:
+          return "#9E9E9E";
       }
     } else {
       switch (status) {
-        case "PENDING": return "#FFA500";
-        case "IN_PROGRESS": return "#2196F3";
-        case "COMPLETED": return "#4CAF50";
-        default: return "#9E9E9E";
+        case "PENDING":
+          return "#FFA500";
+        case "IN_PROGRESS":
+          return "#2196F3";
+        case "COMPLETED":
+          return "#4CAF50";
+        default:
+          return "#9E9E9E";
       }
     }
   };
@@ -47,17 +62,34 @@ const StatusBadge = ({ status, type = "plan" }) => {
 };
 
 const CarePlanScreen = ({ navigation, route }) => {
-  const [selectedLovedOne, setSelectedLovedOne] = useState(route.params?.lovedOne || null);
+  const [selectedLovedOne, setSelectedLovedOne] = useState(
+    route.params?.lovedOne || null
+  );
   const [modalVisible, setModalVisible] = useState(false);
   const [formData, setFormData] = useState({
     title: "",
     description: "",
-    start_date: new Date(),
-    end_date: new Date(),
+    goals: [],
+    schedule: {
+      start_date: new Date(),
+      end_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+    },
     status: "DRAFT",
     notes: "",
-    goals: [],
   });
+
+  const [currentGoal, setCurrentGoal] = useState({
+    title: "",
+    description: "",
+    target_date: new Date(),
+    status: "PENDING",
+  });
+
+  const statusOptions = {
+    carePlan: ["DRAFT", "ACTIVE", "COMPLETED", "ARCHIVED"],
+    goal: ["PENDING", "IN_PROGRESS", "COMPLETED"],
+  };
+
   const { user } = useUser();
   const queryClient = useQueryClient();
 
@@ -66,11 +98,55 @@ const CarePlanScreen = ({ navigation, route }) => {
     queryFn: getAllLovedOnes,
   });
 
-  const { data: carePlans = [], isLoading, error } = useQuery({
+  const {
+    data: carePlans = [],
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ["carePlans", selectedLovedOne?._id],
     queryFn: () => getCarePlans(selectedLovedOne._id),
     enabled: !!selectedLovedOne?._id,
   });
+
+  const [showStartDatePicker, setShowStartDatePicker] = useState(false);
+  const [showEndDatePicker, setShowEndDatePicker] = useState(false);
+  const [showGoalDatePicker, setShowGoalDatePicker] = useState(false);
+
+  const handleStartDateChange = (event, selectedDate) => {
+    setShowStartDatePicker(false);
+    if (selectedDate) {
+      setFormData({
+        ...formData,
+        schedule: {
+          ...formData.schedule,
+          start_date: selectedDate,
+        },
+      });
+    }
+  };
+
+  const handleEndDateChange = (event, selectedDate) => {
+    setShowEndDatePicker(false);
+    if (selectedDate) {
+      setFormData({
+        ...formData,
+        schedule: {
+          ...formData.schedule,
+          end_date: selectedDate,
+        },
+      });
+    }
+  };
+
+  const handleGoalDateChange = (event, selectedDate) => {
+    setShowGoalDatePicker(false);
+    if (selectedDate) {
+      setCurrentGoal({
+        ...currentGoal,
+        target_date: selectedDate,
+      });
+    }
+  };
 
   const handleAddCarePlan = async () => {
     if (!formData.title) {
@@ -84,8 +160,8 @@ const CarePlanScreen = ({ navigation, route }) => {
         loved_one: selectedLovedOne._id,
         created_by: user._id,
         schedule: {
-          start_date: formData.start_date,
-          end_date: formData.end_date,
+          start_date: formData.schedule.start_date,
+          end_date: formData.schedule.end_date,
         },
       };
 
@@ -96,6 +172,25 @@ const CarePlanScreen = ({ navigation, route }) => {
     } catch (error) {
       Alert.alert("Error", error.message || "Failed to create care plan");
     }
+  };
+
+  const handleAddGoal = () => {
+    if (!currentGoal.title) {
+      Alert.alert("Error", "Goal title is required");
+      return;
+    }
+
+    setFormData((prev) => ({
+      ...prev,
+      goals: [...prev.goals, currentGoal],
+    }));
+
+    setCurrentGoal({
+      title: "",
+      description: "",
+      target_date: new Date(),
+      status: "PENDING",
+    });
   };
 
   const renderCarePlan = (carePlan) => (
@@ -170,7 +265,10 @@ const CarePlanScreen = ({ navigation, route }) => {
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Care Plans</Text>
         <Pressable
-          style={({ pressed }) => [styles.addButton, pressed && { opacity: 0.8 }]}
+          style={({ pressed }) => [
+            styles.addButton,
+            pressed && { opacity: 0.8 },
+          ]}
           onPress={() => setModalVisible(true)}
         >
           <LinearGradient
@@ -195,14 +293,16 @@ const CarePlanScreen = ({ navigation, route }) => {
               key={lovedOne._id}
               style={[
                 styles.lovedOneItem,
-                selectedLovedOne?._id === lovedOne._id && styles.selectedLovedOne,
+                selectedLovedOne?._id === lovedOne._id &&
+                  styles.selectedLovedOne,
               ]}
               onPress={() => setSelectedLovedOne(lovedOne)}
             >
               <Text
                 style={[
                   styles.lovedOneName,
-                  selectedLovedOne?._id === lovedOne._id && styles.selectedLovedOneName,
+                  selectedLovedOne?._id === lovedOne._id &&
+                    styles.selectedLovedOneName,
                 ]}
               >
                 {lovedOne.name}
@@ -242,7 +342,10 @@ const CarePlanScreen = ({ navigation, route }) => {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>New Care Plan</Text>
               <Pressable
-                style={({ pressed }) => [styles.closeButton, pressed && styles.pressed]}
+                style={({ pressed }) => [
+                  styles.closeButton,
+                  pressed && styles.pressed,
+                ]}
                 onPress={() => setModalVisible(false)}
               >
                 <Ionicons name="close" size={24} color="#666" />
@@ -255,7 +358,9 @@ const CarePlanScreen = ({ navigation, route }) => {
                 <TextInput
                   style={styles.input}
                   value={formData.title}
-                  onChangeText={(text) => setFormData({ ...formData, title: text })}
+                  onChangeText={(text) =>
+                    setFormData({ ...formData, title: text })
+                  }
                   placeholder="Enter care plan title"
                 />
               </View>
@@ -265,10 +370,82 @@ const CarePlanScreen = ({ navigation, route }) => {
                 <TextInput
                   style={[styles.input, styles.textArea]}
                   value={formData.description}
-                  onChangeText={(text) => setFormData({ ...formData, description: text })}
-                  placeholder="Enter description"
+                  onChangeText={(text) =>
+                    setFormData({ ...formData, description: text })
+                  }
+                  placeholder="Enter care plan description"
                   multiline
                 />
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Start Date</Text>
+                <TouchableOpacity
+                  style={styles.dateButton}
+                  onPress={() => setShowStartDatePicker(true)}
+                >
+                  <Text style={styles.dateText}>
+                    {formData.schedule.start_date.toLocaleDateString()}
+                  </Text>
+                  <Ionicons name="calendar-outline" size={20} color="#4A90E2" />
+                </TouchableOpacity>
+                {showStartDatePicker && (
+                  <DateTimePicker
+                    value={formData.schedule.start_date}
+                    mode="date"
+                    is24Hour={true}
+                    onChange={handleStartDateChange}
+                  />
+                )}
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>End Date</Text>
+                <TouchableOpacity
+                  style={styles.dateButton}
+                  onPress={() => setShowEndDatePicker(true)}
+                >
+                  <Text style={styles.dateText}>
+                    {formData.schedule.end_date.toLocaleDateString()}
+                  </Text>
+                  <Ionicons name="calendar-outline" size={20} color="#4A90E2" />
+                </TouchableOpacity>
+                {showEndDatePicker && (
+                  <DateTimePicker
+                    value={formData.schedule.end_date}
+                    mode="date"
+                    is24Hour={true}
+                    onChange={handleEndDateChange}
+                  />
+                )}
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Status</Text>
+                <View style={styles.statusSelector}>
+                  {statusOptions.carePlan.map((status) => (
+                    <Pressable
+                      key={status}
+                      style={[
+                        styles.statusOption,
+                        formData.status === status && styles.selectedStatus,
+                      ]}
+                      onPress={() =>
+                        setFormData({ ...formData, status: status })
+                      }
+                    >
+                      <Text
+                        style={[
+                          styles.statusText,
+                          formData.status === status &&
+                            styles.selectedStatusText,
+                        ]}
+                      >
+                        {status}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
               </View>
 
               <View style={styles.inputContainer}>
@@ -276,10 +453,118 @@ const CarePlanScreen = ({ navigation, route }) => {
                 <TextInput
                   style={[styles.input, styles.textArea]}
                   value={formData.notes}
-                  onChangeText={(text) => setFormData({ ...formData, notes: text })}
+                  onChangeText={(text) =>
+                    setFormData({ ...formData, notes: text })
+                  }
                   placeholder="Enter additional notes"
                   multiline
                 />
+              </View>
+
+              <View style={styles.goalsSection}>
+                <View style={styles.sectionHeader}>
+                  <Text style={styles.sectionTitle}>
+                    Goals ({formData.goals.length})
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.addGoalButton}
+                    onPress={handleAddGoal}
+                  >
+                    <Ionicons
+                      name="add-circle-outline"
+                      size={24}
+                      color="#4A90E2"
+                    />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Goal Input Form */}
+                <View style={styles.goalForm}>
+                  <TextInput
+                    style={styles.input}
+                    value={currentGoal.title}
+                    onChangeText={(text) =>
+                      setCurrentGoal({ ...currentGoal, title: text })
+                    }
+                    placeholder="Enter goal title"
+                  />
+                  <TextInput
+                    style={[styles.input, styles.textArea]}
+                    value={currentGoal.description}
+                    onChangeText={(text) =>
+                      setCurrentGoal({ ...currentGoal, description: text })
+                    }
+                    placeholder="Enter goal description"
+                    multiline
+                  />
+                  <TouchableOpacity
+                    style={styles.dateButton}
+                    onPress={() => setShowGoalDatePicker(true)}
+                  >
+                    <Text style={styles.dateText}>
+                      Target Date:{" "}
+                      {currentGoal.target_date.toLocaleDateString()}
+                    </Text>
+                    <Ionicons
+                      name="calendar-outline"
+                      size={20}
+                      color="#4A90E2"
+                    />
+                  </TouchableOpacity>
+                  {showGoalDatePicker && (
+                    <DateTimePicker
+                      value={currentGoal.target_date}
+                      mode="date"
+                      is24Hour={true}
+                      onChange={handleGoalDateChange}
+                    />
+                  )}
+
+                  <View style={styles.statusSelector}>
+                    {statusOptions.goal.map((status) => (
+                      <Pressable
+                        key={status}
+                        style={[
+                          styles.statusOption,
+                          currentGoal.status === status &&
+                            styles.selectedStatus,
+                        ]}
+                        onPress={() =>
+                          setCurrentGoal({ ...currentGoal, status: status })
+                        }
+                      >
+                        <Text
+                          style={[
+                            styles.statusText,
+                            currentGoal.status === status &&
+                              styles.selectedStatusText,
+                          ]}
+                        >
+                          {status}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                </View>
+
+                {/* Goals List */}
+                {formData.goals.map((goal, index) => (
+                  <View key={index} style={styles.goalItem}>
+                    <View style={styles.goalHeader}>
+                      <Text style={styles.goalTitle}>{goal.title}</Text>
+                      <StatusBadge status={goal.status} type="goal" />
+                    </View>
+                    {goal.description && (
+                      <Text style={styles.goalDescription}>
+                        {goal.description}
+                      </Text>
+                    )}
+                    <Text style={styles.goalDate}>
+                      Target Date:{" "}
+                      {new Date(goal.target_date).toLocaleDateString()}
+                    </Text>
+                  </View>
+                ))}
               </View>
             </ScrollView>
 
@@ -549,6 +834,93 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.8,
+  },
+  dateButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#f8f9fa",
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#ddd",
+  },
+  dateText: {
+    fontSize: 16,
+    color: "#333",
+  },
+  statusSelector: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 8,
+  },
+  statusOption: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#ddd",
+  },
+  selectedStatus: {
+    backgroundColor: "#4A90E2",
+    borderColor: "#4A90E2",
+  },
+  statusText: {
+    color: "#666",
+    fontSize: 14,
+  },
+  selectedStatusText: {
+    color: "#fff",
+  },
+  goalsSection: {
+    marginTop: 24,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#333",
+  },
+  addGoalButton: {
+    padding: 8,
+  },
+  goalForm: {
+    backgroundColor: "#f8f9fa",
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  goalItem: {
+    backgroundColor: "#f8f9fa",
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  goalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  goalTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#333",
+    flex: 1,
+  },
+  goalDescription: {
+    color: "#666",
+    marginBottom: 8,
+  },
+  goalDate: {
+    color: "#666",
+    fontSize: 14,
   },
 });
 
