@@ -88,7 +88,7 @@ const login = async (email, password) => {
     if (data.user && data.user.profileImage) {
       const imageUrl = data.user.profileImage.startsWith("http")
         ? data.user.profileImage
-        : `http://seal-app-doaaw.ondigitalocean.app/${data.user.profileImage}`;
+        : `https://seal-app-doaaw.ondigitalocean.app/${data.user.profileImage}`;
 
       console.log("Storing profile image URL:", imageUrl);
 
@@ -141,6 +141,76 @@ export const changePassword = async (oldPassword, newPassword) => {
     return data;
   } catch (error) {
     console.error("Error changing password:", error);
+    throw error;
+  }
+};
+
+export const uploadProfileImage = async (imageUri) => {
+  try {
+    const token = await AsyncStorage.getItem("token");
+    if (!token) {
+      throw new Error("No authentication token found");
+    }
+
+    // Create form data
+    const formData = new FormData();
+    const filename = imageUri.split("/").pop();
+    const match = /\.(\w+)$/.exec(filename);
+    const type = match ? `image/${match[1]}` : "image";
+
+    formData.append("image", {
+      uri: imageUri,
+      name: filename,
+      type: type,
+    });
+
+    console.log("Sending image upload request with formData:", formData);
+
+    const response = await fetch(
+      "https://seal-app-doaaw.ondigitalocean.app/api/caregivers/upload-profile-image",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "multipart/form-data",
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      }
+    );
+
+    const data = await response.json();
+    console.log("Upload response:", data);
+
+    if (!response.ok) {
+      throw new Error(data.message || "Failed to upload profile image");
+    }
+
+    // Handle different response formats
+    let profileImage = null;
+
+    if (data.caregiver && data.caregiver.profileImage) {
+      profileImage = data.caregiver.profileImage;
+    } else if (data.image) {
+      profileImage = data.image;
+    } else if (typeof data === "string") {
+      profileImage = data;
+    }
+
+    if (!profileImage) {
+      throw new Error("Invalid response format from server");
+    }
+
+    // Format the image URL if needed
+    const imageUrl = profileImage.startsWith("http")
+      ? profileImage
+      : `https://seal-app-doaaw.ondigitalocean.app/${profileImage}`;
+
+    // Save the image URL to storage
+    await setProfileImage(imageUrl);
+
+    return imageUrl;
+  } catch (error) {
+    console.error("Error uploading profile image:", error);
     throw error;
   }
 };

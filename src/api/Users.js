@@ -149,38 +149,22 @@ const uploadProfileImage = async (imageUri, token) => {
     console.log("Raw upload response:", JSON.stringify(response, null, 2));
 
     // Handle different response formats
-    if (response) {
+    if (response?.data) {
       let profileImage = null;
 
-      if (response.caregiver && response.caregiver.profileImage) {
-        profileImage = response.caregiver.profileImage;
-      } else if (response.image) {
-        profileImage = response.image;
-      } else if (typeof response === "string") {
-        profileImage = response;
-      } else if (response.profileImage) {
-        profileImage = response.profileImage;
+      if (response.data.caregiver && response.data.caregiver.profileImage) {
+        profileImage = response.data.caregiver.profileImage;
+      } else if (response.data.image) {
+        profileImage = response.data.image;
+      } else if (typeof response.data === "string") {
+        profileImage = response.data;
       }
 
       if (profileImage) {
-        // Remove any leading slashes
-        profileImage = profileImage.replace(/^\/+/, "");
-
-        // Ensure the image URL is absolute
-        const imageUrl = profileImage.startsWith("http")
-          ? profileImage
-          : `https://seal-app-doaaw.ondigitalocean.app/uploads/${profileImage}`;
-
-        console.log("Formatted image URL:", imageUrl);
-        return {
-          caregiver: {
-            profileImage: imageUrl,
-          },
-        };
+        return response.data;
       }
     }
 
-    console.error("Unexpected response format:", response);
     throw new Error("Invalid response format from server");
   } catch (error) {
     console.error("Error uploading profile image:", error);

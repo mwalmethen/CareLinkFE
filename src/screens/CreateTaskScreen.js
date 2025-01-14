@@ -336,6 +336,11 @@ const CreateTaskScreen = ({ navigation }) => {
     }
 
     try {
+      // Use selectedMember directly since it's already the full caregiver object
+      const assignedCaregiver = selectedMember;
+
+      console.log("Selected caregiver:", assignedCaregiver);
+
       const taskData = {
         title: title.trim(),
         description: description.trim(),
@@ -344,8 +349,16 @@ const CreateTaskScreen = ({ navigation }) => {
         end_time: endTime,
         category: formData.category.value || formData.category,
         priority: formData.priority.value || formData.priority,
-        assigned_to: formData.assigned_to?._id || formData.assigned_to,
+        assigned_to: assignedCaregiver
+          ? {
+              _id: assignedCaregiver._id,
+              name: assignedCaregiver.user?.name || assignedCaregiver.name,
+              email: assignedCaregiver.user?.email,
+            }
+          : null,
       };
+
+      console.log("Creating task with data:", taskData);
 
       createMutation.mutate({
         lovedOneId: selectedLovedOne._id,
