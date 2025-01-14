@@ -42,6 +42,13 @@ const DropdownSelect = ({
     }).start();
   }, [isOpen, options.length]);
 
+  const getDisplayName = (option) => {
+    if (option?.user?.name) {
+      return option.user.name;
+    }
+    return option?.name || "";
+  };
+
   return (
     <View style={styles.dropdownContainer}>
       <Text style={styles.label}>{label}</Text>
@@ -49,13 +56,16 @@ const DropdownSelect = ({
         style={({ pressed }) => [
           styles.dropdownButton,
           pressed && styles.pressed,
+          disabled && styles.disabled,
         ]}
         onPress={() => setIsOpen(!isOpen)}
         disabled={disabled}
       >
         <Ionicons name={icon} size={20} color="#666" />
-        <Text style={styles.dropdownButtonText}>
-          {value?.name || placeholder}
+        <Text
+          style={[styles.dropdownButtonText, !value && styles.placeholderText]}
+        >
+          {value ? getDisplayName(value) : placeholder || `Select ${label}`}
         </Text>
         <Ionicons
           name={isOpen ? "chevron-up" : "chevron-down"}
@@ -88,7 +98,9 @@ const DropdownSelect = ({
                 setIsOpen(false);
               }}
             >
-              <Text style={styles.dropdownItemText}>{option.name}</Text>
+              <Text style={styles.dropdownItemText}>
+                {getDisplayName(option)}
+              </Text>
             </Pressable>
           ))}
         </ScrollView>
@@ -106,6 +118,96 @@ const DateTimeButton = ({ value, icon, onPress }) => (
     <Text style={styles.dateTimeText}>{value}</Text>
   </Pressable>
 );
+
+const getTaskCategoryInfo = (category) => {
+  switch (category) {
+    case "MEDICATION":
+      return {
+        color: "#E11D48",
+        lightColor: "#FFF1F2",
+        gradientColors: ["#F43F5E", "#E11D48"],
+        icon: "medical-outline",
+      };
+    case "HEALTH_CHECK":
+      return {
+        color: "#0891B2",
+        lightColor: "#ECFEFF",
+        gradientColors: ["#06B6D4", "#0891B2"],
+        icon: "fitness-outline",
+      };
+    case "APPOINTMENT":
+      return {
+        color: "#7C3AED",
+        lightColor: "#F3E8FF",
+        gradientColors: ["#8B5CF6", "#7C3AED"],
+        icon: "calendar-outline",
+      };
+    case "EXERCISE":
+      return {
+        color: "#059669",
+        lightColor: "#ECFDF5",
+        gradientColors: ["#10B981", "#059669"],
+        icon: "barbell-outline",
+      };
+    case "DIET":
+      return {
+        color: "#D97706",
+        lightColor: "#FFFBEB",
+        gradientColors: ["#F59E0B", "#D97706"],
+        icon: "nutrition-outline",
+      };
+    case "HYGIENE":
+      return {
+        color: "#0284C7",
+        lightColor: "#F0F9FF",
+        gradientColors: ["#0EA5E9", "#0284C7"],
+        icon: "water-outline",
+      };
+    case "SOCIAL":
+      return {
+        color: "#7E22CE",
+        lightColor: "#FAF5FF",
+        gradientColors: ["#9333EA", "#7E22CE"],
+        icon: "people-outline",
+      };
+    default:
+      return {
+        color: "#6B7280",
+        lightColor: "#F9FAFB",
+        gradientColors: ["#9CA3AF", "#6B7280"],
+        icon: "list-outline",
+      };
+  }
+};
+
+const getPriorityInfo = (priority) => {
+  switch (priority) {
+    case "HIGH":
+      return {
+        color: "#DC2626",
+        lightColor: "#FEF2F2",
+        gradientColors: ["#EF4444", "#DC2626"],
+      };
+    case "MEDIUM":
+      return {
+        color: "#F59E0B",
+        lightColor: "#FFFBEB",
+        gradientColors: ["#FBBF24", "#F59E0B"],
+      };
+    case "LOW":
+      return {
+        color: "#10B981",
+        lightColor: "#ECFDF5",
+        gradientColors: ["#34D399", "#10B981"],
+      };
+    default:
+      return {
+        color: "#6B7280",
+        lightColor: "#F9FAFB",
+        gradientColors: ["#9CA3AF", "#6B7280"],
+      };
+  }
+};
 
 const CreateTaskScreen = ({ navigation }) => {
   const [formData, setFormData] = useState({
@@ -179,23 +281,33 @@ const CreateTaskScreen = ({ navigation }) => {
   const createMutation = useMutation({
     mutationFn: ({ lovedOneId, taskData }) => createTask(lovedOneId, taskData),
     onMutate: async ({ lovedOneId, taskData }) => {
-      await queryClient.cancelQueries({ queryKey: ["tasks", lovedOneId] });
-      const previousTasks = queryClient.getQueryData(["tasks", lovedOneId]);
-      queryClient.setQueryData(["tasks", lovedOneId], (old) => {
-        if (!old) return { pending: [taskData], completed: [], total: 1 };
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["tasks"] });
+
+      // Snapshot the previous value
+      const previousTasks = queryClient.getQueryData(["tasks"]);
+
+      // Optimistically update to the new value
+      queryClient.setQueryData(["tasks"], (old) => {
+        if (!old)
+          return { pending: [taskData], completed: [], all: [taskData] };
         return {
           ...old,
           pending: [
             ...(old.pending || []),
             { ...taskData, _id: Date.now().toString() },
           ],
-          total: (old.total || 0) + 1,
+          all: [
+            ...(old.all || []),
+            { ...taskData, _id: Date.now().toString() },
+          ],
         };
       });
+
       return { previousTasks };
     },
-    onError: (err, { lovedOneId }, context) => {
-      queryClient.setQueryData(["tasks", lovedOneId], context.previousTasks);
+    onError: (err, variables, context) => {
+      queryClient.setQueryData(["tasks"], context.previousTasks);
       Alert.alert("Error", "Failed to create task. Please try again.");
     },
     onSuccess: () => {
@@ -206,8 +318,9 @@ const CreateTaskScreen = ({ navigation }) => {
         },
       ]);
     },
-    onSettled: (_, __, { lovedOneId }) => {
-      queryClient.invalidateQueries({ queryKey: ["tasks", lovedOneId] });
+    onSettled: () => {
+      // Invalidate and refetch
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
     },
   });
 
@@ -295,29 +408,93 @@ const CreateTaskScreen = ({ navigation }) => {
     }
   };
 
+  const renderCategoryOption = (option) => {
+    const categoryInfo = getTaskCategoryInfo(option._id);
+    return (
+      <Pressable
+        style={({ pressed }) => [
+          styles.categoryOption,
+          formData.category === option._id && styles.selectedCategoryOption,
+          pressed && styles.pressed,
+        ]}
+        onPress={() => setFormData({ ...formData, category: option._id })}
+      >
+        <LinearGradient
+          colors={categoryInfo.gradientColors}
+          style={styles.categoryIcon}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+        >
+          <Ionicons name={categoryInfo.icon} size={20} color="white" />
+        </LinearGradient>
+        <Text
+          style={[
+            styles.categoryOptionText,
+            formData.category === option._id && styles.selectedCategoryText,
+          ]}
+        >
+          {option.name}
+        </Text>
+        {formData.category === option._id && (
+          <Ionicons
+            name="checkmark-circle"
+            size={20}
+            color={categoryInfo.color}
+          />
+        )}
+      </Pressable>
+    );
+  };
+
+  const renderPriorityOption = (option) => {
+    const priorityInfo = getPriorityInfo(option._id);
+    return (
+      <Pressable
+        style={({ pressed }) => [
+          styles.priorityOption,
+          formData.priority === option._id && styles.selectedPriorityOption,
+          pressed && styles.pressed,
+        ]}
+        onPress={() => setFormData({ ...formData, priority: option._id })}
+      >
+        <LinearGradient
+          colors={priorityInfo.gradientColors}
+          style={styles.priorityBadge}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+        >
+          <Text style={styles.priorityBadgeText}>{option.name}</Text>
+        </LinearGradient>
+      </Pressable>
+    );
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <LinearGradient
-        colors={["#4A90E2", "#357ABD"]}
+        colors={["#3B82F6", "#2563EB"]}
         style={styles.header}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
       >
-        <Pressable
-          style={({ pressed }) => [
-            styles.backButton,
-            pressed && styles.pressed,
-          ]}
-          onPress={() => navigation.goBack()}
-        >
-          <Ionicons name="arrow-back" size={24} color="white" />
-        </Pressable>
-        <Text style={styles.headerTitle}>Create New Task</Text>
-        <View style={{ width: 24 }} />
+        <View style={styles.headerContent}>
+          <Pressable
+            style={({ pressed }) => [
+              styles.backButton,
+              pressed && styles.pressed,
+            ]}
+            onPress={() => navigation.goBack()}
+          >
+            <Ionicons name="arrow-back" size={24} color="white" />
+          </Pressable>
+          <Text style={styles.headerTitle}>Create New Task</Text>
+          <View style={{ width: 24 }} />
+        </View>
       </LinearGradient>
 
       <ScrollView
         style={styles.content}
+        contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
@@ -329,7 +506,7 @@ const CreateTaskScreen = ({ navigation }) => {
               placeholder="Enter task title"
               value={title}
               onChangeText={setTitle}
-              placeholderTextColor="#999"
+              placeholderTextColor="#94A3B8"
             />
           </View>
 
@@ -343,64 +520,51 @@ const CreateTaskScreen = ({ navigation }) => {
               multiline
               numberOfLines={4}
               textAlignVertical="top"
-              placeholderTextColor="#999"
+              placeholderTextColor="#94A3B8"
             />
           </View>
 
-          <DropdownSelect
-            label="Loved One"
-            value={selectedLovedOne}
-            options={lovedOnes}
-            onSelect={(lovedOne) => {
-              setSelectedLovedOne(lovedOne);
-              setSelectedMember(null); // Reset selected caregiver when loved one changes
-            }}
-            icon="heart-outline"
-          />
+          <View style={styles.sectionContainer}>
+            <Text style={styles.sectionTitle}>Category</Text>
+            <View style={styles.categoryList}>
+              {categoryOptions.map((option) => renderCategoryOption(option))}
+            </View>
+          </View>
 
-          <DropdownSelect
-            label="Category"
-            value={formData.category}
-            options={categoryOptions}
-            onSelect={(value) =>
-              setFormData({ ...formData, category: value._id })
-            }
-            icon="bookmark-outline"
-            placeholder="Select category"
-          />
+          <View style={styles.sectionContainer}>
+            <Text style={styles.sectionTitle}>Priority</Text>
+            <View style={styles.priorityList}>
+              {priorityOptions.map((option) => renderPriorityOption(option))}
+            </View>
+          </View>
 
-          <DropdownSelect
-            label="Priority"
-            value={formData.priority}
-            options={priorityOptions}
-            onSelect={(value) =>
-              setFormData({ ...formData, priority: value._id })
-            }
-            icon="alert-circle-outline"
-            placeholder="Select priority"
-          />
+          <View style={styles.horizontalPickersContainer}>
+            <View style={styles.horizontalPickerItem}>
+              <DropdownSelect
+                label="Loved One"
+                value={selectedLovedOne}
+                options={lovedOnes}
+                onSelect={(lovedOne) => {
+                  setSelectedLovedOne(lovedOne);
+                  setSelectedMember(null);
+                }}
+                icon="heart-outline"
+              />
+            </View>
 
-          <DropdownSelect
-            label="Assign To"
-            value={formData.assigned_to}
-            options={caregivers.map((caregiver) => ({
-              _id: caregiver._id,
-              name: caregiver.user.name,
-              email: caregiver.user.email,
-            }))}
-            onSelect={(value) =>
-              setFormData({ ...formData, assigned_to: value })
-            }
-            icon="person-outline"
-            disabled={!selectedLovedOne || isLoadingCaregivers}
-            placeholder={
-              isLoadingCaregivers
-                ? "Loading caregivers..."
-                : !selectedLovedOne
-                ? "Select a loved one first"
-                : "Select caregiver"
-            }
-          />
+            <View style={styles.horizontalPickerItem}>
+              {selectedLovedOne && (
+                <DropdownSelect
+                  label="Assign To"
+                  value={selectedMember}
+                  options={caregivers}
+                  onSelect={setSelectedMember}
+                  icon="person-outline"
+                  loading={isLoadingCaregivers}
+                />
+              )}
+            </View>
+          </View>
 
           <View style={styles.dateTimeSection}>
             <Text style={styles.label}>Due Date</Text>
@@ -584,10 +748,10 @@ const CreateTaskScreen = ({ navigation }) => {
           onPress={handleSubmit}
         >
           <LinearGradient
-            colors={["#4A90E2", "#357ABD"]}
+            colors={["#3B82F6", "#2563EB"]}
             style={styles.createButtonGradient}
             start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
+            end={{ x: 1, y: 1 }}
           >
             <Ionicons name="add-circle-outline" size={24} color="white" />
             <Text style={styles.createButtonText}>Create Task</Text>
@@ -601,175 +765,152 @@ const CreateTaskScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
+    backgroundColor: "#F8FAFC",
   },
   header: {
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
+  },
+  headerContent: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: "white",
   },
   backButton: {
     padding: 8,
     borderRadius: 20,
   },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: "white",
-  },
   content: {
     flex: 1,
   },
+  scrollContent: {
+    padding: 16,
+  },
   formContainer: {
-    padding: 20,
+    gap: 20,
   },
   inputContainer: {
-    marginBottom: 20,
+    gap: 8,
   },
   label: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#333",
+    color: "#1F2937",
     marginBottom: 8,
   },
   input: {
     backgroundColor: "white",
     borderWidth: 1,
-    borderColor: "#E1E1E1",
+    borderColor: "#E2E8F0",
     borderRadius: 12,
     padding: 12,
     fontSize: 16,
-    color: "#333",
+    color: "#1F2937",
   },
   textArea: {
     height: 100,
     textAlignVertical: "top",
   },
-  dropdownContainer: {
-    marginBottom: 20,
-    zIndex: 1,
+  sectionContainer: {
+    gap: 12,
   },
-  dropdownButton: {
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#1F2937",
+  },
+  categoryList: {
     flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "white",
-    borderWidth: 1,
-    borderColor: "#E1E1E1",
-    borderRadius: 12,
-    padding: 12,
+    flexWrap: "wrap",
     gap: 8,
   },
-  dropdownButtonText: {
-    flex: 1,
-    fontSize: 16,
-    color: "#333",
-  },
-  dropdownList: {
-    backgroundColor: "white",
-    borderRadius: 12,
-    marginTop: 8,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "#E1E1E1",
-  },
-  dropdownItem: {
+  categoryOption: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#F0F0F0",
+    backgroundColor: "white",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    borderRadius: 12,
+    padding: 8,
+    gap: 8,
+    flex: 1,
+    minWidth: "48%",
   },
-  dropdownItemText: {
-    fontSize: 16,
-    color: "#333",
+  selectedCategoryOption: {
+    borderColor: "#3B82F6",
+    backgroundColor: "#EFF6FF",
+  },
+  categoryIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  categoryOptionText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#4B5563",
+  },
+  selectedCategoryText: {
+    color: "#1F2937",
+    fontWeight: "600",
+  },
+  priorityList: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  priorityOption: {
+    flex: 1,
+  },
+  priorityBadge: {
+    borderRadius: 12,
+    padding: 12,
+    alignItems: "center",
+  },
+  priorityBadgeText: {
+    color: "white",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  selectedPriorityOption: {
+    transform: [{ scale: 1.05 }],
   },
   dateTimeSection: {
-    marginBottom: 20,
+    gap: 8,
   },
   timeSection: {
     flexDirection: "row",
-    gap: 20,
-    marginBottom: 20,
+    gap: 16,
   },
   timeColumn: {
     flex: 1,
-  },
-  dateTimeButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "white",
-    borderWidth: 1,
-    borderColor: "#E1E1E1",
-    borderRadius: 12,
-    padding: 12,
     gap: 8,
   },
-  dateTimeText: {
-    flex: 1,
-    fontSize: 16,
-    color: "#333",
-  },
-  pickerContainer: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: "#ffffff",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: -2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  pickerHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E1E1E1",
-    backgroundColor: "#f8f8f8",
-  },
-  pickerTitle: {
-    fontSize: 17,
-    fontWeight: "600",
-    color: "#000000",
-    textAlign: "center",
-    flex: 1,
-  },
-  pickerButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 4,
-    minWidth: 60,
-    alignItems: "center",
-  },
-  pickerButtonText: {
-    fontSize: 17,
-    fontWeight: "500",
-    color: "#007AFF",
-  },
-  pickerWrapper: {
-    backgroundColor: "#ffffff",
-    paddingTop: 8,
-  },
-  picker: {
-    height: 216,
-    backgroundColor: "#ffffff",
-  },
   footer: {
-    padding: 20,
+    padding: 16,
     backgroundColor: "white",
     borderTopWidth: 1,
-    borderTopColor: "#F0F0F0",
+    borderTopColor: "#E2E8F0",
   },
   createButton: {
     borderRadius: 12,
@@ -788,7 +929,7 @@ const styles = StyleSheet.create({
     color: "white",
   },
   pressed: {
-    opacity: 0.8,
+    opacity: 0.9,
     transform: [{ scale: 0.98 }],
   },
   modalContainer: {
@@ -913,6 +1054,67 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     backgroundColor: "rgba(0, 0, 0, 0.5)",
+  },
+  horizontalPickersContainer: {
+    flexDirection: "row",
+    gap: 16,
+    marginBottom: 16,
+    zIndex: 2,
+  },
+  horizontalPickerItem: {
+    flex: 1,
+    zIndex: 2,
+  },
+  dropdownContainer: {
+    zIndex: 1,
+  },
+  dropdownButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "white",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    borderRadius: 12,
+    padding: 12,
+    gap: 8,
+    height: 48,
+  },
+  dropdownButtonText: {
+    flex: 1,
+    fontSize: 16,
+    color: "#1F2937",
+  },
+  placeholderText: {
+    color: "#94A3B8",
+  },
+  disabled: {
+    opacity: 0.5,
+  },
+  dropdownList: {
+    position: "absolute",
+    top: "100%",
+    left: 0,
+    right: 0,
+    backgroundColor: "white",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    borderRadius: 12,
+    marginTop: 4,
+    overflow: "hidden",
+    zIndex: 2,
+    maxHeight: 200,
+  },
+  dropdownItem: {
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E2E8F0",
+    backgroundColor: "white",
+    height: 48,
+    justifyContent: "center",
+  },
+  dropdownItemText: {
+    fontSize: 16,
+    color: "#1F2937",
   },
 });
 

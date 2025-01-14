@@ -151,7 +151,9 @@ const FormSelect = ({ label, value, onValueChange, options, style }) => {
   );
 };
 
-const MedicalHistoryCard = ({ entry, index, handleEdit }) => {
+const MedicalHistoryCard = ({ entry, handleEdit }) => {
+  if (!entry) return null;
+
   const formatDate = (date) => {
     if (!date) return "Not specified";
     const parsedDate = moment(date);
@@ -166,6 +168,28 @@ const MedicalHistoryCard = ({ entry, index, handleEdit }) => {
     return parsedDate.isValid()
       ? parsedDate.format("MMM D, YYYY")
       : "Invalid date";
+  };
+
+  // Helper function to get effectiveness badge style
+  const getEffectivenessBadgeStyle = (effectiveness) => {
+    switch (effectiveness) {
+      case "EFFECTIVE":
+        return { backgroundColor: "#E8F5E9", color: "#2E7D32" };
+      case "PARTIALLY_EFFECTIVE":
+        return { backgroundColor: "#FFF3E0", color: "#F57C00" };
+      case "NOT_EFFECTIVE":
+        return { backgroundColor: "#FFEBEE", color: "#D32F2F" };
+      default:
+        return { backgroundColor: "#E3F2FD", color: "#1976D2" };
+    }
+  };
+
+  // Helper function to format effectiveness text
+  const formatEffectiveness = (effectiveness) => {
+    return effectiveness
+      .split("_")
+      .map((word) => word.charAt(0) + word.slice(1).toLowerCase())
+      .join(" ");
   };
 
   return (
@@ -282,11 +306,6 @@ const MedicalHistoryCard = ({ entry, index, handleEdit }) => {
             <View key={i} style={styles.item}>
               <View style={styles.itemHeader}>
                 <Text style={styles.itemTitle}>{medication.name}</Text>
-                <View style={[styles.badge, { backgroundColor: "#E3F2FD" }]}>
-                  <Text style={[styles.badgeText, { color: "#1976D2" }]}>
-                    {medication.effectiveness}
-                  </Text>
-                </View>
               </View>
               <View style={styles.itemContent}>
                 <Text style={styles.itemDetail}>
@@ -297,6 +316,41 @@ const MedicalHistoryCard = ({ entry, index, handleEdit }) => {
                   <Ionicons name="calendar-outline" size={14} color="#666" />{" "}
                   Started: {formatDate(medication.start_date)}
                 </Text>
+                <View style={styles.effectivenessContainer}>
+                  <Text style={styles.effectivenessLabel}>
+                    <Ionicons name="pulse-outline" size={14} color="#666" />{" "}
+                    Effectiveness:
+                  </Text>
+                  <View
+                    style={[
+                      styles.effectivenessBadge,
+                      {
+                        backgroundColor: getEffectivenessBadgeStyle(
+                          medication.effectiveness
+                        ).backgroundColor,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.effectivenessText,
+                        {
+                          color: getEffectivenessBadgeStyle(
+                            medication.effectiveness
+                          ).color,
+                        },
+                      ]}
+                    >
+                      {formatEffectiveness(medication.effectiveness)}
+                    </Text>
+                  </View>
+                </View>
+                {medication.reason && (
+                  <View style={styles.notesContainer}>
+                    <Text style={styles.notesLabel}>Reason:</Text>
+                    <Text style={styles.notes}>{medication.reason}</Text>
+                  </View>
+                )}
               </View>
             </View>
           ))}
@@ -376,6 +430,13 @@ const MedicalHistoryScreen = ({ route, navigation }) => {
   const { token } = useUser();
   const queryClient = useQueryClient();
 
+  // Constants for effectiveness values
+  const EFFECTIVENESS = {
+    EFFECTIVE: "EFFECTIVE",
+    PARTIALLY_EFFECTIVE: "PARTIALLY_EFFECTIVE",
+    NOT_EFFECTIVE: "NOT_EFFECTIVE",
+  };
+
   // Form state
   const [formData, setFormData] = useState({
     conditions: [
@@ -392,7 +453,7 @@ const MedicalHistoryScreen = ({ route, navigation }) => {
         dosage: "",
         start_date: "",
         reason: "",
-        effectiveness: "EFFECTIVE",
+        effectiveness: EFFECTIVENESS.EFFECTIVE,
       },
     ],
     allergies: [
@@ -411,6 +472,13 @@ const MedicalHistoryScreen = ({ route, navigation }) => {
     ],
     notes: "",
   });
+
+  // Effectiveness options for the selector
+  const effectivenessOptions = [
+    { value: EFFECTIVENESS.EFFECTIVE, label: "Effective" },
+    { value: EFFECTIVENESS.PARTIALLY_EFFECTIVE, label: "Partially Effective" },
+    { value: EFFECTIVENESS.NOT_EFFECTIVE, label: "Not Effective" },
+  ];
 
   // Create mutation
   const createMutation = useMutation({
@@ -434,7 +502,34 @@ const MedicalHistoryScreen = ({ route, navigation }) => {
 
       return response.json();
     },
-    onSuccess: () => {
+    onMutate: async (newEntry) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries(["medicalHistory", lovedOne._id]);
+
+      // Snapshot the previous value
+      const previousHistory = queryClient.getQueryData([
+        "medicalHistory",
+        lovedOne._id,
+      ]);
+
+      // Optimistically update to the new value
+      queryClient.setQueryData(["medicalHistory", lovedOne._id], (old) => {
+        const currentHistory = old || [];
+        return [...currentHistory, newEntry.data];
+      });
+
+      return { previousHistory };
+    },
+    onError: (err, newEntry, context) => {
+      // If the mutation fails, use the context returned from onMutate to roll back
+      queryClient.setQueryData(
+        ["medicalHistory", lovedOne._id],
+        context.previousHistory
+      );
+      Alert.alert("Error", err.message || "Failed to create medical history");
+    },
+    onSuccess: (data) => {
+      // Invalidate and refetch
       queryClient.invalidateQueries(["medicalHistory", lovedOne._id]);
       setIsModalVisible(false);
       Alert.alert("Success", "Medical history created successfully");
@@ -454,7 +549,7 @@ const MedicalHistoryScreen = ({ route, navigation }) => {
             dosage: "",
             start_date: "",
             reason: "",
-            effectiveness: "EFFECTIVE",
+            effectiveness: EFFECTIVENESS.EFFECTIVE,
           },
         ],
         allergies: [
@@ -474,8 +569,9 @@ const MedicalHistoryScreen = ({ route, navigation }) => {
         notes: "",
       });
     },
-    onError: (error) => {
-      Alert.alert("Error", error.message || "Failed to create medical history");
+    onSettled: () => {
+      // Always refetch after error or success
+      queryClient.invalidateQueries(["medicalHistory", lovedOne._id]);
     },
   });
 
@@ -483,9 +579,9 @@ const MedicalHistoryScreen = ({ route, navigation }) => {
   const updateMutation = useMutation({
     mutationFn: async ({ entryId, data }) => {
       const response = await fetch(
-        `https://seal-app-doaaw.ondigitalocean.app/api/medical-history/loved-one/${lovedOne._id}/${entryId}`,
+        `https://seal-app-doaaw.ondigitalocean.app/api/medical-history/loved-one/${lovedOne._id}`,
         {
-          method: "PUT",
+          method: "POST",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
@@ -513,9 +609,8 @@ const MedicalHistoryScreen = ({ route, navigation }) => {
     },
   });
 
-  const handleEdit = (entry, section) => {
+  const handleEdit = (entry) => {
     setEditingEntry(entry);
-    setEditingSection(section);
     setFormData({
       conditions: entry.conditions || [
         {
@@ -531,7 +626,7 @@ const MedicalHistoryScreen = ({ route, navigation }) => {
           dosage: "",
           start_date: "",
           reason: "",
-          effectiveness: "EFFECTIVE",
+          effectiveness: EFFECTIVENESS.EFFECTIVE,
         },
       ],
       allergies: entry.allergies || [
@@ -555,24 +650,65 @@ const MedicalHistoryScreen = ({ route, navigation }) => {
 
   const handleSubmit = () => {
     try {
-      // Validate required dates
-      if (
-        formData.conditions[0].name &&
-        !moment(formData.conditions[0].diagnosis_date).isValid()
-      ) {
-        Alert.alert("Error", "Please select a valid diagnosis date");
+      // Validate conditions section
+      const isConditionsValid = formData.conditions.every(
+        (condition) => condition.name.trim() && condition.diagnosis_date
+      );
+      if (!isConditionsValid) {
+        Alert.alert(
+          "Validation Error",
+          "Please fill in all fields in the Conditions section"
+        );
         return;
       }
 
-      if (
-        formData.medications[0].name &&
-        !moment(formData.medications[0].start_date).isValid()
-      ) {
-        Alert.alert("Error", "Please select a valid medication start date");
+      // Validate medications section
+      const isMedicationsValid = formData.medications.every(
+        (medication) =>
+          medication.name.trim() &&
+          medication.dosage.trim() &&
+          medication.start_date &&
+          medication.reason.trim()
+      );
+      if (!isMedicationsValid) {
+        Alert.alert(
+          "Validation Error",
+          "Please fill in all fields in the Medications section"
+        );
         return;
       }
 
-      // Create a copy of the form data
+      // Validate allergies section
+      const isAllergiesValid = formData.allergies.every(
+        (allergy) => allergy.allergen.trim() && allergy.reaction.trim()
+      );
+      if (!isAllergiesValid) {
+        Alert.alert(
+          "Validation Error",
+          "Please fill in all fields in the Allergies section"
+        );
+        return;
+      }
+
+      // Validate family history section
+      const isFamilyHistoryValid = formData.family_history.every(
+        (history) => history.condition.trim() && history.relationship.trim()
+      );
+      if (!isFamilyHistoryValid) {
+        Alert.alert(
+          "Validation Error",
+          "Please fill in all fields in the Family History section"
+        );
+        return;
+      }
+
+      // Validate additional notes
+      if (!formData.notes.trim()) {
+        Alert.alert("Validation Error", "Please add some additional notes");
+        return;
+      }
+
+      // Create a copy of the form data with proper casing
       const validatedData = {
         ...formData,
         conditions: formData.conditions.map((condition) => ({
@@ -589,14 +725,6 @@ const MedicalHistoryScreen = ({ route, navigation }) => {
         })),
       };
 
-      // Remove empty arrays or objects
-      if (!validatedData.conditions[0].name) delete validatedData.conditions;
-      if (!validatedData.medications[0].name) delete validatedData.medications;
-      if (!validatedData.allergies[0].allergen) delete validatedData.allergies;
-      if (!validatedData.family_history[0].condition)
-        delete validatedData.family_history;
-      if (!validatedData.notes) delete validatedData.notes;
-
       if (editingEntry) {
         // If editing, only include the section being edited
         const updateData = {};
@@ -607,6 +735,7 @@ const MedicalHistoryScreen = ({ route, navigation }) => {
         }
         updateMutation.mutate({ entryId: editingEntry._id, data: updateData });
       } else {
+        // For creating new medical history
         createMutation.mutate(validatedData);
       }
     } catch (error) {
@@ -671,11 +800,49 @@ const MedicalHistoryScreen = ({ route, navigation }) => {
     { label: "Severe", value: "SEVERE" },
   ];
 
-  const effectivenessOptions = [
-    { label: "Effective", value: "EFFECTIVE" },
-    { label: "Moderate", value: "MODERATE" },
-    { label: "Ineffective", value: "INEFFECTIVE" },
-  ];
+  const renderMedicationFields = (medication, index) => (
+    <View key={index} style={styles.fieldSet}>
+      <TextInput
+        style={styles.input}
+        placeholder="Medication name"
+        value={medication.name}
+        onChangeText={(text) =>
+          handleFieldChange("medications", index, "name", text)
+        }
+      />
+      <TextInput
+        style={styles.input}
+        placeholder="Dosage"
+        value={medication.dosage}
+        onChangeText={(text) =>
+          handleFieldChange("medications", index, "dosage", text)
+        }
+      />
+      <FormDatePicker
+        label="Start Date"
+        value={medication.start_date}
+        onChange={(date) =>
+          handleFieldChange("medications", index, "start_date", date)
+        }
+      />
+      <TextInput
+        style={styles.input}
+        placeholder="Reason for medication"
+        value={medication.reason}
+        onChangeText={(text) =>
+          handleFieldChange("medications", index, "reason", text)
+        }
+      />
+      <FormSelect
+        label="Effectiveness"
+        value={medication.effectiveness}
+        options={effectivenessOptions}
+        onValueChange={(value) =>
+          handleFieldChange("medications", index, "effectiveness", value)
+        }
+      />
+    </View>
+  );
 
   const renderCreateModal = () => (
     <Modal
@@ -1050,7 +1217,6 @@ const MedicalHistoryScreen = ({ route, navigation }) => {
               <MedicalHistoryCard
                 key={index}
                 entry={entry}
-                index={index}
                 handleEdit={handleEdit}
               />
             ))
@@ -1608,6 +1774,26 @@ const styles = StyleSheet.create({
   cardBadge: {
     padding: 8,
     borderRadius: 8,
+  },
+  effectivenessContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 8,
+  },
+  effectivenessLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#666",
+    marginRight: 8,
+  },
+  effectivenessBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  effectivenessText: {
+    fontSize: 12,
+    fontWeight: "600",
   },
 });
 
