@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -8,9 +8,12 @@ import {
   ScrollView,
   Dimensions,
   ActivityIndicator,
+  TouchableOpacity,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { getEmergencyAlerts } from "../api";
+import EmergencyAlertModal from "./EmergencyAlertModal";
 
 const { height } = Dimensions.get("window");
 
@@ -23,6 +26,29 @@ const NotificationsModal = ({
   onReject,
 }) => {
   const [acceptingId, setAcceptingId] = useState(null);
+  const [emergencyAlerts, setEmergencyAlerts] = useState([]);
+  const [selectedAlert, setSelectedAlert] = useState(null);
+  const [showAlertDetails, setShowAlertDetails] = useState(false);
+
+  useEffect(() => {
+    if (visible) {
+      fetchEmergencyAlerts();
+    }
+  }, [visible]);
+
+  const fetchEmergencyAlerts = async () => {
+    try {
+      const alerts = await getEmergencyAlerts(lovedOneId);
+      setEmergencyAlerts(alerts);
+    } catch (error) {
+      console.error("Error fetching emergency alerts:", error);
+    }
+  };
+
+  const handleViewAlert = (alert) => {
+    setSelectedAlert(alert);
+    setShowAlertDetails(true);
+  };
 
   const handleAccept = async (invitationId) => {
     try {
@@ -113,7 +139,7 @@ const NotificationsModal = ({
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
           >
-            <Text style={styles.headerTitle}>Invitations</Text>
+            <Text style={styles.headerTitle}>Notifications</Text>
             <Pressable
               style={({ pressed }) => [
                 styles.closeButton,
@@ -132,19 +158,52 @@ const NotificationsModal = ({
             {isLoading ? (
               <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color="#4A90E2" />
-                <Text style={styles.loadingText}>Loading invitations...</Text>
+                <Text style={styles.loadingText}>Loading notifications...</Text>
               </View>
             ) : invitations.length > 0 ? (
               invitations.map((invitation) => renderInvitation(invitation))
             ) : (
               <View style={styles.emptyContainer}>
                 <Ionicons name="mail-outline" size={48} color="#ccc" />
-                <Text style={styles.emptyText}>No invitations yet</Text>
+                <Text style={styles.emptyText}>No notifications yet</Text>
+              </View>
+            )}
+
+            {emergencyAlerts.length > 0 && (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Emergency Alerts</Text>
+                {emergencyAlerts.map((alert) => (
+                  <View key={alert._id} style={styles.alertItem}>
+                    <View style={styles.alertContent}>
+                      <Text style={styles.alertType}>
+                        {alert.type.replace(/_/g, " ")}
+                      </Text>
+                      <Text style={styles.alertDescription}>
+                        {alert.description}
+                      </Text>
+                      <Text style={styles.alertTime}>
+                        {new Date(alert.createdAt).toLocaleString()}
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.viewButton}
+                      onPress={() => handleViewAlert(alert)}
+                    >
+                      <Text style={styles.viewButtonText}>View</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))}
               </View>
             )}
           </ScrollView>
         </View>
       </View>
+
+      <EmergencyAlertModal
+        visible={showAlertDetails}
+        alert={selectedAlert}
+        onClose={() => setShowAlertDetails(false)}
+      />
     </Modal>
   );
 };
@@ -311,6 +370,45 @@ const styles = StyleSheet.create({
   },
   actionButtonDisabled: {
     opacity: 0.7,
+  },
+  alertItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 15,
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: "#E1E1E1",
+  },
+  alertContent: {
+    flex: 1,
+  },
+  alertType: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#EA4335",
+    marginBottom: 5,
+  },
+  alertDescription: {
+    fontSize: 14,
+    color: "#666",
+    marginBottom: 5,
+  },
+  alertTime: {
+    fontSize: 12,
+    color: "#999",
+  },
+  viewButton: {
+    backgroundColor: "#4A90E2",
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  viewButtonText: {
+    color: "white",
+    fontSize: 14,
+    fontWeight: "bold",
   },
 });
 

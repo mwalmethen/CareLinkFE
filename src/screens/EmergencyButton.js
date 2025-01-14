@@ -9,33 +9,50 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import DropDownPicker from "react-native-dropdown-picker";
 import { useUser } from "../api/UserContext";
 import { getAllLovedOnes } from "../api/Users";
+import { createEmergencyAlert } from "../api";
 import { useQuery } from "@tanstack/react-query";
+import DateTimePicker from "@react-native-community/datetimepicker";
 
 const EmergencyButton = ({ navigation }) => {
   const [lovedOne, setLovedOne] = useState("");
   const [type, setType] = useState("");
+  const [priority, setPriority] = useState("");
   const [description, setDescription] = useState("");
-  const [open, setOpen] = useState(false);
-  const [items, setItems] = useState([
-    { label: "Select type", value: "" },
-    { label: "Task Help", value: "TASK_HELP" },
+  const [location, setLocation] = useState("");
+  const [responseNeededBy, setResponseNeededBy] = useState(new Date());
+  const [loading, setLoading] = useState(false);
+
+  // Dropdowns state
+  const [typeOpen, setTypeOpen] = useState(false);
+  const [priorityOpen, setPriorityOpen] = useState(false);
+  const [lovedOneOpen, setLovedOneOpen] = useState(false);
+
+  // Dropdown items
+  const [typeItems] = useState([
     { label: "Medical Emergency", value: "MEDICAL_EMERGENCY" },
+    { label: "Task Help", value: "TASK_HELP" },
     { label: "General Assistance", value: "GENERAL_ASSISTANCE" },
   ]);
-  const [lovedOneOpen, setLovedOneOpen] = useState(false);
+
+  const [priorityItems] = useState([
+    { label: "Urgent", value: "URGENT" },
+    { label: "High", value: "HIGH" },
+    { label: "Critical", value: "CRITICAL" },
+  ]);
+
   const [lovedOneItems, setLovedOneItems] = useState([]);
   const { user } = useUser();
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["lovedOnes"],
     queryFn: getAllLovedOnes,
-    enabled: true,
   });
 
   useEffect(() => {
@@ -48,14 +65,34 @@ const EmergencyButton = ({ navigation }) => {
     }
   }, [data]);
 
-  const handleButtonPress = () => {
-    const emergencyRequest = {
-      loved_one: lovedOne,
-      requester: user.name,
-      type: type,
-      description: description,
-    };
-    console.log(emergencyRequest);
+  const handleButtonPress = async () => {
+    if (!lovedOne || !type || !priority || !description || !location) {
+      Alert.alert("Error", "Please fill in all required fields");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const emergencyData = {
+        type,
+        priority,
+        description,
+        location,
+        response_needed_by: responseNeededBy.toISOString(),
+        // task field is optional, so we're not including it here
+      };
+
+      const response = await createEmergencyAlert(lovedOne, emergencyData);
+      Alert.alert("Success", "Emergency alert sent successfully");
+      navigation.goBack();
+    } catch (error) {
+      Alert.alert(
+        "Error",
+        error.response?.data?.message || "Failed to send emergency alert"
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -66,7 +103,6 @@ const EmergencyButton = ({ navigation }) => {
       >
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Emergency Alert</Text>
-          <View style={{ width: 24 }} />
         </View>
 
         <ScrollView
@@ -74,67 +110,83 @@ const EmergencyButton = ({ navigation }) => {
           keyboardShouldPersistTaps="handled"
           nestedScrollEnabled={true}
         >
-          <View style={styles.section}>
-            <Text style={styles.label}>Loved One</Text>
-            {isLoading && <ActivityIndicator size="large" color="#4A90E2" />}
-            {error && (
-              <Text style={styles.errorText}>Failed to load loved ones.</Text>
-            )}
-            {!isLoading && !error && lovedOneItems.length > 0 ? (
-              <DropDownPicker
-                open={lovedOneOpen}
-                value={lovedOne}
-                items={lovedOneItems}
-                setOpen={setLovedOneOpen}
-                setValue={setLovedOne}
-                setItems={setLovedOneItems}
-                placeholder="Select Loved One"
-                style={styles.dropdown}
-                dropDownContainerStyle={styles.dropdownContainer}
-                textStyle={styles.dropdownText}
-                placeholderStyle={styles.dropdownPlaceholder}
-                zIndex={3000}
-                zIndexInverse={1000}
-                listMode="SCROLLVIEW"
-              />
-            ) : (
-              !isLoading && (
-                <Text style={styles.noDataText}>No loved ones added yet.</Text>
-              )
-            )}
+          <View style={[styles.section, { zIndex: 3000 }]}>
+            <Text style={styles.label}>Loved One *</Text>
+            <DropDownPicker
+              open={lovedOneOpen}
+              value={lovedOne}
+              items={lovedOneItems}
+              setOpen={setLovedOneOpen}
+              setValue={setLovedOne}
+              setItems={setLovedOneItems}
+              placeholder="Select Loved One"
+              style={styles.dropdown}
+              zIndex={3000}
+              listMode="SCROLLVIEW"
+            />
           </View>
 
           <View style={[styles.section, { zIndex: 2000 }]}>
-            <Text style={styles.label}>Emergency Type</Text>
+            <Text style={styles.label}>Emergency Type *</Text>
             <DropDownPicker
-              open={open}
+              open={typeOpen}
               value={type}
-              items={items}
-              setOpen={setOpen}
+              items={typeItems}
+              setOpen={setTypeOpen}
               setValue={setType}
-              setItems={setItems}
-              style={styles.dropdown}
-              dropDownContainerStyle={styles.dropdownContainer}
-              textStyle={styles.dropdownText}
-              placeholderStyle={styles.dropdownPlaceholder}
               placeholder="Select emergency type"
+              style={styles.dropdown}
               zIndex={2000}
-              zIndexInverse={2000}
               listMode="SCROLLVIEW"
             />
           </View>
 
           <View style={[styles.section, { zIndex: 1000 }]}>
-            <Text style={styles.label}>Description</Text>
+            <Text style={styles.label}>Priority Level *</Text>
+            <DropDownPicker
+              open={priorityOpen}
+              value={priority}
+              items={priorityItems}
+              setOpen={setPriorityOpen}
+              setValue={setPriority}
+              placeholder="Select priority level"
+              style={styles.dropdown}
+              zIndex={1000}
+              listMode="SCROLLVIEW"
+            />
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.label}>Location *</Text>
             <TextInput
-              placeholder="Describe the emergency situation..."
+              style={styles.input}
+              value={location}
+              onChangeText={setLocation}
+              placeholder="Enter location (e.g., Home - Main Room)"
+            />
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.label}>Description *</Text>
+            <TextInput
+              style={styles.textArea}
               value={description}
               onChangeText={setDescription}
-              style={styles.textArea}
               multiline
               numberOfLines={4}
-              textAlignVertical="top"
-              placeholderTextColor="#666"
+              placeholder="Describe the emergency situation..."
+            />
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.label}>Response Needed By</Text>
+            <DateTimePicker
+              value={responseNeededBy}
+              mode="datetime"
+              display="default"
+              onChange={(event, selectedDate) => {
+                if (selectedDate) setResponseNeededBy(selectedDate);
+              }}
             />
           </View>
         </ScrollView>
@@ -143,9 +195,18 @@ const EmergencyButton = ({ navigation }) => {
           <TouchableOpacity
             style={styles.submitButton}
             onPress={handleButtonPress}
+            disabled={loading}
           >
-            <Ionicons name="warning" size={24} color="white" />
-            <Text style={styles.submitButtonText}>Send Emergency Request</Text>
+            {loading ? (
+              <ActivityIndicator color="white" />
+            ) : (
+              <>
+                <Ionicons name="warning" size={24} color="white" />
+                <Text style={styles.submitButtonText}>
+                  Send Emergency Alert
+                </Text>
+              </>
+            )}
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
