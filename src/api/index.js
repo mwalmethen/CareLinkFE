@@ -40,6 +40,31 @@ instance.interceptors.request.use(
   }
 );
 
+// Add this function to handle emergency alerts
+export const createEmergencyAlert = async (lovedOneId, alertData) => {
+  try {
+    const response = await instance.post(
+      `/api/emergency-alerts/loved-one/${lovedOneId}`,
+      alertData
+    );
+    return response;
+  } catch (error) {
+    throw error;
+  }
+};
+
+// Add function to get emergency alerts
+export const getEmergencyAlerts = async (lovedOneId) => {
+  try {
+    const response = await instance.get(
+      `/api/emergency-alerts/loved-one/${lovedOneId}`
+    );
+    return response;
+  } catch (error) {
+    throw error;
+  }
+};
+
 export default instance;
 
 // import axios from "axios";
