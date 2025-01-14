@@ -523,12 +523,13 @@ const ProfileScreen = ({ navigation }) => {
   // Memoized handlers
   const handleImagePick = useCallback(async () => {
     try {
-      const { status } =
+      const permissionResult =
         await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== "granted") {
+
+      if (!permissionResult.granted) {
         Alert.alert(
-          "Permission needed",
-          "Please grant permission to access your photos."
+          "Permission Required",
+          "Please allow access to your photo library to change your profile picture."
         );
         return;
       }
@@ -537,78 +538,55 @@ const ProfileScreen = ({ navigation }) => {
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [1, 1],
-        quality: 0.8,
+        quality: 0.5,
       });
 
-      if (!result.canceled) {
+      if (!result.canceled && result.assets[0].uri) {
         setLoading(true);
         try {
-          console.log("Selected image:", result.assets[0].uri);
           const response = await uploadProfileImage(
             result.assets[0].uri,
             token
           );
-          console.log(
-            "Profile image upload response:",
-            JSON.stringify(response, null, 2)
-          );
+          console.log("Upload response:", response);
 
-          if (response.caregiver && response.caregiver.profileImage) {
-            const imageUrl = response.caregiver.profileImage; // URL is already formatted in uploadProfileImage
-            console.log("Using image URL:", imageUrl);
+          if (response?.caregiver?.profileImage) {
+            // Format the image URL
+            const imageUrl = response.caregiver.profileImage.startsWith("http")
+              ? response.caregiver.profileImage
+              : `https://seal-app-doaaw.ondigitalocean.app/${response.caregiver.profileImage}`;
 
-            try {
-              // Save to storage first
-              console.log("Saving to storage:", imageUrl);
-              await setProfileImage(imageUrl);
+            // Save the image URL to storage
+            await setProfileImage(imageUrl);
 
-              // Update user data
-              const updatedUser = {
-                ...user,
-                profileImage: imageUrl,
-              };
-              console.log("Updating user data:", updatedUser);
+            // Update the user context with the new image
+            updateUser({
+              ...user,
+              profileImage: imageUrl,
+            });
 
-              // Save to AsyncStorage
-              await AsyncStorage.setItem("user", JSON.stringify(updatedUser));
-              console.log("Saved to AsyncStorage");
+            // Invalidate queries to refresh the UI
+            queryClient.invalidateQueries(["user"]);
 
-              // Update user context
-              await updateUser(updatedUser);
-              console.log("Updated user context");
-
-              // Update local state last
-              setProfileImage(imageUrl);
-              console.log("Updated local state");
-
-              Alert.alert("Success", "Profile image updated successfully!");
-            } catch (storageError) {
-              console.error("Error saving image:", storageError);
-              Alert.alert(
-                "Error",
-                "Failed to save profile image. Please try again."
-              );
-            }
+            Alert.alert("Success", "Profile picture updated successfully!");
           } else {
-            console.error("Invalid response format:", response);
-            Alert.alert("Error", "Invalid response from server");
+            throw new Error("Invalid response format from server");
           }
         } catch (error) {
           console.error("Error uploading image:", error);
           Alert.alert(
             "Error",
-            error.response?.data?.message ||
-              "Failed to upload profile image. Please try again."
+            "Failed to upload profile picture. Please try again."
           );
-        } finally {
-          setLoading(false);
         }
+        setLoading(false);
       }
     } catch (error) {
-      console.error("Image picker error:", error);
+      console.error("Error picking image:", error);
       Alert.alert("Error", "Failed to pick image. Please try again.");
+      setLoading(false);
     }
-  }, [token, user, updateUser]);
+  }, [token, user, updateUser, queryClient]);
 
   const handleAddLovedOne = useCallback(
     async (formData) => {
@@ -936,25 +914,25 @@ const ProfileScreen = ({ navigation }) => {
           end={{ x: 1, y: 1 }}
         >
           <View style={styles.profileImageContainer}>
-            <View style={styles.profileImage}>
-              {profileImage ? (
-                <Image
-                  source={{ uri: profileImage }}
-                  style={styles.profileImageStyle}
-                  resizeMode="cover"
-                />
-              ) : (
-                <Ionicons name="person" size={40} color="white" />
-              )}
-            </View>
-            <TouchableOpacity
-              style={styles.editButton}
-              onPress={handleImagePick}
-            >
-              <View style={styles.editButtonInner}>
-                <Ionicons name="camera" size={16} color="white" />
+            {loading ? (
+              <ActivityIndicator size="large" color="#4A90E2" />
+            ) : user?.profileImage ? (
+              <Image
+                source={{ uri: user.profileImage }}
+                style={styles.profileImage}
+                resizeMode="cover"
+              />
+            ) : (
+              <View style={styles.profileImagePlaceholder}>
+                <Ionicons name="person-outline" size={40} color="#94A3B8" />
               </View>
-            </TouchableOpacity>
+            )}
+            <Pressable
+              onPress={handleImagePick}
+              style={styles.cameraIconContainer}
+            >
+              <Ionicons name="camera" size={16} color="white" />
+            </Pressable>
           </View>
           <Text style={styles.userName}>{user?.name || "User Name"}</Text>
           <Text style={styles.userEmail}>
@@ -1285,23 +1263,42 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   profileImageContainer: {
-    alignItems: "center",
-    marginBottom: 20,
-  },
-  profileImage: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: "rgba(255,255,255,0.2)",
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: "#F5F7FA",
     justifyContent: "center",
     alignItems: "center",
-    borderWidth: 4,
-    borderColor: "white",
+    marginBottom: 16,
     overflow: "hidden",
+    borderWidth: 3,
+    borderColor: "white",
   },
-  profileImageStyle: {
+  profileImage: {
     width: "100%",
     height: "100%",
+    borderRadius: 50,
+  },
+  profileImagePlaceholder: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 50,
+    backgroundColor: "#F5F7FA",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  cameraIconContainer: {
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    backgroundColor: "#4A90E2",
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: "white",
   },
   editButton: {
     position: "absolute",

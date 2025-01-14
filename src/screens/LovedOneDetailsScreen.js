@@ -82,7 +82,7 @@ const InviteModal = ({
             ]}
             onPress={onClose}
           >
-            <Ionicons name="close" size={24} color="#666" />
+            <Ionicons name="close" size={24} color="#64748B" />
           </Pressable>
         </View>
         <View style={styles.modalBody}>
@@ -90,6 +90,7 @@ const InviteModal = ({
           <TextInput
             style={styles.input}
             placeholder="Enter email address"
+            placeholderTextColor="#94A3B8"
             value={email}
             onChangeText={onChangeEmail}
             keyboardType="email-address"
@@ -98,15 +99,15 @@ const InviteModal = ({
           />
           <Pressable
             style={[
-              styles.inviteButton,
-              isLoading && styles.inviteButtonDisabled,
+              styles.modalButton,
+              isLoading && styles.modalButtonDisabled,
             ]}
             onPress={onSubmit}
             disabled={isLoading}
           >
             <LinearGradient
               colors={["#4A90E2", "#357ABD"]}
-              style={styles.inviteButtonGradient}
+              style={styles.modalButtonGradient}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
             >
@@ -115,11 +116,107 @@ const InviteModal = ({
               ) : (
                 <>
                   <Ionicons name="mail-outline" size={20} color="white" />
-                  <Text style={styles.inviteButtonText}>Send Invitation</Text>
+                  <Text style={styles.modalButtonText}>Send Invitation</Text>
                 </>
               )}
             </LinearGradient>
           </Pressable>
+        </View>
+      </View>
+    </Pressable>
+  </Modal>
+);
+
+const CaregiverActionsModal = ({
+  visible,
+  onClose,
+  caregiver,
+  onDeleteCaregiver,
+  onChangeRole,
+}) => (
+  <Modal
+    visible={visible}
+    transparent
+    animationType="fade"
+    onRequestClose={onClose}
+  >
+    <Pressable style={styles.modalOverlay} onPress={onClose}>
+      <View style={styles.modalContent}>
+        <View style={styles.modalHeader}>
+          <Text style={styles.modalTitle}>Caregiver Actions</Text>
+          <Pressable
+            style={({ pressed }) => [
+              styles.closeButton,
+              pressed && styles.pressed,
+            ]}
+            onPress={onClose}
+          >
+            <Ionicons name="close" size={24} color="#64748B" />
+          </Pressable>
+        </View>
+        <View style={styles.modalBody}>
+          <View style={styles.caregiverModalInfo}>
+            <View style={styles.caregiverModalAvatar}>
+              <LinearGradient
+                colors={["#4A90E2", "#357ABD"]}
+                style={styles.caregiverModalAvatarGradient}
+              >
+                <Ionicons name="person-outline" size={32} color="white" />
+              </LinearGradient>
+            </View>
+            <Text style={styles.caregiverModalName}>
+              {caregiver?.user?.name}
+            </Text>
+            <Text style={styles.caregiverModalEmail}>
+              {caregiver?.user?.email}
+            </Text>
+            <Text style={styles.caregiverModalRole}>
+              {caregiver?.role} Caregiver
+            </Text>
+          </View>
+          <View style={styles.modalActions}>
+            <Pressable
+              style={({ pressed }) => [
+                styles.modalButton,
+                pressed && styles.pressed,
+              ]}
+              onPress={() => {
+                onChangeRole(caregiver);
+                onClose();
+              }}
+            >
+              <LinearGradient
+                colors={["#4A90E2", "#357ABD"]}
+                style={styles.modalButtonGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              >
+                <Ionicons name="swap-horizontal" size={20} color="white" />
+                <Text style={styles.modalButtonText}>Change Role</Text>
+              </LinearGradient>
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => [
+                styles.modalButton,
+                styles.deleteButton,
+                pressed && styles.pressed,
+              ]}
+              onPress={() => {
+                onDeleteCaregiver(caregiver);
+                onClose();
+              }}
+            >
+              <LinearGradient
+                colors={["#EA4335", "#D32F2F"]}
+                style={styles.modalButtonGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              >
+                <Ionicons name="trash-outline" size={20} color="white" />
+                <Text style={styles.modalButtonText}>Delete Caregiver</Text>
+              </LinearGradient>
+            </Pressable>
+          </View>
         </View>
       </View>
     </Pressable>
@@ -134,6 +231,8 @@ const LovedOneDetailsScreen = ({ route, navigation }) => {
   const [inviteModalVisible, setInviteModalVisible] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [isInviting, setIsInviting] = useState(false);
+  const [selectedCaregiver, setSelectedCaregiver] = useState(null);
+  const [caregiverModalVisible, setCaregiverModalVisible] = useState(false);
 
   // Add query to fetch tasks for this loved one
   const {
@@ -260,6 +359,17 @@ const LovedOneDetailsScreen = ({ route, navigation }) => {
     }
   };
 
+  // Add these placeholder functions (to be implemented later with API endpoints)
+  const handleDeleteCaregiver = (caregiver) => {
+    // Will implement when API endpoint is provided
+    console.log("Delete caregiver:", caregiver);
+  };
+
+  const handleChangeRole = (caregiver) => {
+    // Will implement when API endpoint is provided
+    console.log("Change role for caregiver:", caregiver);
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <LinearGradient
@@ -277,160 +387,191 @@ const LovedOneDetailsScreen = ({ route, navigation }) => {
         >
           <Ionicons name="arrow-back" size={24} color="white" />
         </Pressable>
-        <Text style={styles.headerTitle}>Loved One Details</Text>
+        <Text style={styles.headerTitle}>{lovedOne.name}'s Profile</Text>
       </LinearGradient>
 
-      <ScrollView
-        style={styles.content}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
+      <ScrollView style={styles.content}>
         <Animated.View
           style={[
-            styles.card,
+            styles.scrollContent,
             {
               opacity: fadeAnim,
-              transform: [{ scale: scaleAnim }, { translateY: slideAnim }],
+              transform: [{ translateY: slideAnim }, { scale: scaleAnim }],
             },
           ]}
         >
-          <View style={styles.profileSection}>
-            <View style={styles.profileImageContainer}>
-              {lovedOne.profileImage ? (
-                <Image
-                  source={{ uri: lovedOne.profileImage }}
-                  style={styles.profileImage}
-                  onError={(error) => {
-                    console.error(
-                      "Image loading error:",
-                      error.nativeEvent.error
-                    );
-                  }}
-                />
-              ) : (
+          {/* Profile Card */}
+          <View style={styles.card}>
+            <View style={styles.profileSection}>
+              <View style={styles.profileImageContainer}>
+                {lovedOne.profileImage ? (
+                  <Image
+                    source={{ uri: lovedOne.profileImage }}
+                    style={styles.profileImage}
+                  />
+                ) : (
+                  <LinearGradient
+                    colors={["#4A90E2", "#357ABD"]}
+                    style={styles.profileIconGradient}
+                  >
+                    <Ionicons name="person" size={48} color="white" />
+                  </LinearGradient>
+                )}
+              </View>
+              <Text style={styles.name}>{lovedOne.name}</Text>
+              <Text style={styles.subtitle}>{lovedOne.relationship}</Text>
+            </View>
+          </View>
+
+          {/* Stats Card */}
+          <View style={[styles.card, styles.statsCard]}>
+            <View style={styles.statsContainer}>
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>
+                  {tasks.pending.length + tasks.completed.length}
+                </Text>
+                <Text style={styles.statLabel}>Tasks</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>{caregivers.length || 0}</Text>
+                <Text style={styles.statLabel}>Caregivers</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>
+                  {tasks.completed.length > 0
+                    ? Math.round(
+                        (tasks.completed.length /
+                          (tasks.pending.length + tasks.completed.length)) *
+                          100
+                      )
+                    : 0}
+                  %
+                </Text>
+                <Text style={styles.statLabel}>Completion</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Actions Card */}
+          <View style={[styles.card, styles.actionsCard]}>
+            <Text style={styles.cardTitle}>Quick Actions</Text>
+            <View style={styles.actionsGrid}>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.actionButton,
+                  pressed && styles.pressed,
+                ]}
+                onPress={() => setInviteModalVisible(true)}
+              >
                 <LinearGradient
-                  colors={["#4A90E2", "#357ABD"]}
-                  style={styles.profileIconGradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
+                  colors={["#4C51BF", "#434190"]}
+                  style={styles.actionGradientButton}
                 >
-                  <View style={styles.profileIcon}>
-                    <Ionicons name="person" size={40} color="white" />
-                  </View>
+                  <Ionicons name="mail-outline" size={24} color="white" />
+                  <Text style={styles.actionButtonText}>
+                    Invite{"\n"}Caregiver
+                  </Text>
                 </LinearGradient>
-              )}
-            </View>
-            <Text style={styles.name}>{lovedOne.name}</Text>
-          </View>
-
-          <View style={styles.detailsSection}>
-            <DetailItem
-              icon="calendar-outline"
-              label="Age"
-              value={lovedOne.age}
-            />
-            <DetailItem
-              icon="medical-outline"
-              label="Medical History"
-              value={lovedOne.medical_history}
-              color="#EA4335"
-            />
-            <DetailItem
-              icon="time-outline"
-              label="Member Since"
-              value={new Date().toLocaleDateString()}
-              color="#34A853"
-            />
-          </View>
-
-          <View style={styles.statsContainer}>
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>
-                {tasks.pending.length + tasks.completed.length}
-              </Text>
-              <Text style={styles.statLabel}>Tasks</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{caregivers.length || 0}</Text>
-              <Text style={styles.statLabel}>Caregivers</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>
-                {tasks.completed.length > 0
-                  ? Math.round(
-                      (tasks.completed.length /
-                        (tasks.pending.length + tasks.completed.length)) *
-                        100
-                    )
-                  : 0}
-                %
-              </Text>
-              <Text style={styles.statLabel}>Completion</Text>
+              </Pressable>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.actionButton,
+                  pressed && styles.pressed,
+                ]}
+                onPress={handleEditLovedOne}
+              >
+                <LinearGradient
+                  colors={["#38B2AC", "#319795"]}
+                  style={styles.actionGradientButton}
+                >
+                  <Ionicons name="create-outline" size={24} color="white" />
+                  <Text style={styles.actionButtonText}>Health{"\n"}Info</Text>
+                </LinearGradient>
+              </Pressable>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.actionButton,
+                  pressed && styles.pressed,
+                ]}
+                onPress={handleViewTasks}
+              >
+                <LinearGradient
+                  colors={["#ED8936", "#DD6B20"]}
+                  style={styles.actionGradientButton}
+                >
+                  <Ionicons name="list-outline" size={24} color="white" />
+                  <Text style={styles.actionButtonText}>View{"\n"}Tasks</Text>
+                </LinearGradient>
+              </Pressable>
             </View>
           </View>
 
-          <View style={styles.caregiversSection}>
-            <Text style={styles.sectionTitle}>Caregivers</Text>
+          {/* Caregivers Card */}
+          <View style={[styles.card, styles.caregiversCard]}>
+            <Text style={styles.cardTitle}>Caregivers</Text>
             {isLoadingCaregivers ? (
               <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color="#4A90E2" />
                 <Text style={styles.loadingText}>Loading caregivers...</Text>
               </View>
             ) : caregivers.length > 0 ? (
-              caregivers.map((caregiver, index) => (
-                <View key={caregiver._id || index} style={styles.caregiverItem}>
-                  <View style={styles.caregiverIcon}>
-                    <Ionicons name="person-outline" size={24} color="white" />
-                  </View>
-                  <View style={styles.caregiverInfo}>
-                    <Text style={styles.caregiverName}>
-                      {caregiver.user.name}
-                    </Text>
-                    <Text style={styles.caregiverEmail}>
-                      {caregiver.user.email}
-                    </Text>
-                    <Text style={styles.caregiverRole}>
-                      {caregiver.role} Caregiver
-                    </Text>
-                  </View>
-                </View>
-              ))
+              <View style={styles.caregiversList}>
+                {caregivers.map((caregiver, index) => (
+                  <Pressable
+                    key={caregiver._id || index}
+                    style={({ pressed }) => [
+                      styles.caregiverItem,
+                      pressed && styles.pressed,
+                    ]}
+                    onPress={() => {
+                      setSelectedCaregiver(caregiver);
+                      setCaregiverModalVisible(true);
+                    }}
+                  >
+                    <View style={styles.caregiverAvatarContainer}>
+                      <LinearGradient
+                        colors={["#4A90E2", "#357ABD"]}
+                        style={styles.caregiverAvatar}
+                      >
+                        <Ionicons
+                          name="person-outline"
+                          size={20}
+                          color="white"
+                        />
+                      </LinearGradient>
+                    </View>
+                    <View style={styles.caregiverInfo}>
+                      <Text style={styles.caregiverName}>
+                        {caregiver.user.name}
+                      </Text>
+                      <Text style={styles.caregiverEmail}>
+                        {caregiver.user.email}
+                      </Text>
+                      <Text style={styles.caregiverRole}>
+                        {caregiver.role} Caregiver
+                      </Text>
+                    </View>
+                    <Ionicons
+                      name="chevron-forward"
+                      size={20}
+                      color="#94A3B8"
+                      style={styles.caregiverArrow}
+                    />
+                  </Pressable>
+                ))}
+              </View>
             ) : (
               <Text style={styles.noCaregivers}>
                 No caregivers assigned yet
               </Text>
             )}
           </View>
-
-          <View style={styles.actionsContainer}>
-            <ActionButton
-              icon="mail-outline"
-              text="Invite Caregiver"
-              onPress={() => setInviteModalVisible(true)}
-              colors={["#4A90E2", "#357ABD"]}
-              style={styles.mainAction}
-            />
-            <View style={styles.secondaryActions}>
-              <ActionButton
-                icon="create-outline"
-                text="Health"
-                onPress={handleEditLovedOne}
-                colors={["#34A853", "#2E8B4A"]}
-                style={styles.secondaryAction}
-              />
-              <ActionButton
-                icon="list-outline"
-                text="View Tasks"
-                onPress={handleViewTasks}
-                colors={["#FBBC05", "#F5A623"]}
-                style={styles.secondaryAction}
-              />
-            </View>
-          </View>
         </Animated.View>
       </ScrollView>
+
+      {/* Keep existing modals */}
       <InviteModal
         visible={inviteModalVisible}
         onClose={() => setInviteModalVisible(false)}
@@ -439,6 +580,13 @@ const LovedOneDetailsScreen = ({ route, navigation }) => {
         onSubmit={handleInviteCaregiver}
         isLoading={isInviting}
       />
+      <CaregiverActionsModal
+        visible={caregiverModalVisible}
+        onClose={() => setCaregiverModalVisible(false)}
+        caregiver={selectedCaregiver}
+        onDeleteCaregiver={handleDeleteCaregiver}
+        onChangeRole={handleChangeRole}
+      />
     </SafeAreaView>
   );
 };
@@ -446,12 +594,13 @@ const LovedOneDetailsScreen = ({ route, navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
+    backgroundColor: "#F1F5F9",
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
     padding: 16,
+    paddingTop: 20,
   },
   backButton: {
     padding: 8,
@@ -471,25 +620,26 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: "white",
-    borderRadius: 20,
-    padding: 20,
+    borderRadius: 16,
+    marginBottom: 16,
+    padding: 16,
     shadowColor: "#000",
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: 1,
     },
     shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowRadius: 2,
+    elevation: 2,
   },
   profileSection: {
     alignItems: "center",
-    marginBottom: 24,
+    paddingVertical: 16,
   },
   profileImageContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
     marginBottom: 16,
     shadowColor: "#000",
     shadowOffset: {
@@ -497,22 +647,16 @@ const styles = StyleSheet.create({
       height: 2,
     },
     shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowRadius: 4,
+    elevation: 2,
     overflow: "hidden",
   },
   profileImage: {
     width: "100%",
     height: "100%",
-    borderRadius: 60,
+    borderRadius: 50,
   },
   profileIconGradient: {
-    width: "100%",
-    height: "100%",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  profileIcon: {
     width: "100%",
     height: "100%",
     justifyContent: "center",
@@ -521,235 +665,253 @@ const styles = StyleSheet.create({
   name: {
     fontSize: 24,
     fontWeight: "700",
-    color: "#333",
-    marginTop: 8,
-  },
-  detailsSection: {
-    marginBottom: 24,
-  },
-  detailItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 16,
-  },
-  detailText: {
-    flex: 1,
-  },
-  detailLabel: {
-    fontSize: 14,
-    color: "#666",
+    color: "#1F2937",
     marginBottom: 4,
   },
-  detailValue: {
+  subtitle: {
     fontSize: 16,
-    color: "#333",
-    fontWeight: "500",
+    color: "#64748B",
+  },
+  statsCard: {
+    padding: 0,
+    overflow: "hidden",
   },
   statsContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
-    backgroundColor: "#f8f9fa",
-    borderRadius: 12,
     padding: 16,
-    marginBottom: 24,
   },
   statItem: {
-    alignItems: "center",
     flex: 1,
-  },
-  statDivider: {
-    width: 1,
-    backgroundColor: "#E1E1E1",
+    alignItems: "center",
   },
   statValue: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: "700",
     color: "#4A90E2",
     marginBottom: 4,
   },
   statLabel: {
-    fontSize: 12,
-    color: "#666",
+    fontSize: 14,
+    color: "#64748B",
   },
-  caregiversSection: {
-    backgroundColor: "#f8f9fa",
-    borderRadius: 16,
-    padding: 20,
-    marginTop: 16,
+  statDivider: {
+    width: 1,
+    backgroundColor: "#E2E8F0",
+    marginHorizontal: 16,
+  },
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#1F2937",
     marginBottom: 16,
   },
-  caregiverItem: {
+  actionsGrid: {
     flexDirection: "row",
-    alignItems: "center",
-    padding: 16,
-    backgroundColor: "white",
-    borderRadius: 12,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: "#E1E1E1",
-  },
-  caregiverIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: "#4A90E2",
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 16,
-  },
-  caregiverInfo: {
-    flex: 1,
-    justifyContent: "center",
-  },
-  caregiverName: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: "#000",
-    marginBottom: 6,
-  },
-  caregiverEmail: {
-    fontSize: 15,
-    color: "#4A90E2",
-    fontWeight: "600",
-  },
-  caregiverRole: {
-    fontSize: 14,
-    color: "#666",
-    marginTop: 6,
-  },
-  sectionTitle: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: "#000",
-    marginBottom: 20,
-    letterSpacing: 0.5,
-  },
-  noCaregivers: {
-    fontSize: 14,
-    color: "#666",
-    textAlign: "center",
-    paddingVertical: 20,
-  },
-  actionsContainer: {
+    justifyContent: "space-between",
     gap: 12,
-  },
-  mainAction: {
-    marginBottom: 12,
-  },
-  secondaryActions: {
-    flexDirection: "row",
-    gap: 12,
-  },
-  secondaryAction: {
-    flex: 1,
   },
   actionButton: {
+    flex: 1,
+    aspectRatio: 1,
     borderRadius: 12,
     overflow: "hidden",
   },
-  actionGradient: {
-    flexDirection: "row",
+  actionGradientButton: {
+    flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    padding: 16,
+    padding: 12,
     gap: 8,
   },
   actionButtonText: {
     color: "white",
+    fontSize: 14,
+    fontWeight: "600",
+    textAlign: "center",
+    lineHeight: 18,
+  },
+  caregiversList: {
+    gap: 12,
+  },
+  caregiverItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F8FAFC",
+    borderRadius: 12,
+    padding: 12,
+  },
+  caregiverAvatarContainer: {
+    marginRight: 12,
+  },
+  caregiverAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  caregiverInfo: {
+    flex: 1,
+  },
+  caregiverName: {
     fontSize: 16,
     fontWeight: "600",
+    color: "#1F2937",
+    marginBottom: 2,
+  },
+  caregiverEmail: {
+    fontSize: 14,
+    color: "#4A90E2",
+    marginBottom: 2,
+  },
+  caregiverRole: {
+    fontSize: 14,
+    color: "#64748B",
+  },
+  caregiverArrow: {
+    marginLeft: 8,
+  },
+  loadingContainer: {
+    alignItems: "center",
+    padding: 20,
+  },
+  loadingText: {
+    marginTop: 8,
+    color: "#64748B",
+    fontSize: 14,
+  },
+  noCaregivers: {
+    textAlign: "center",
+    color: "#64748B",
+    fontSize: 14,
+    padding: 20,
   },
   pressed: {
     opacity: 0.8,
-    transform: [{ scale: 0.98 }],
-  },
-  loadingContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 16,
-  },
-  loadingText: {
-    fontSize: 16,
-    color: "#666",
-    marginLeft: 8,
   },
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.5)",
     justifyContent: "center",
     alignItems: "center",
+    padding: 16,
   },
   modalContent: {
     backgroundColor: "white",
-    borderRadius: 20,
-    width: "90%",
+    borderRadius: 16,
+    width: "100%",
     maxWidth: 400,
     shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 2,
     },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
   },
   modalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: 20,
+    padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
+    borderBottomColor: "#E2E8F0",
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "700",
-    color: "#333",
+    color: "#1F2937",
+  },
+  closeButton: {
+    padding: 8,
+    borderRadius: 20,
   },
   modalBody: {
-    padding: 20,
+    padding: 16,
   },
   inputLabel: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "600",
-    color: "#4A90E2",
+    color: "#1F2937",
     marginBottom: 8,
   },
   input: {
     borderWidth: 1,
-    borderColor: "#E1E1E1",
+    borderColor: "#E2E8F0",
     borderRadius: 12,
     padding: 12,
     fontSize: 16,
-    marginBottom: 20,
+    color: "#1F2937",
+    backgroundColor: "#F8FAFC",
+    marginBottom: 16,
   },
-  inviteButton: {
+  modalButton: {
     borderRadius: 12,
     overflow: "hidden",
+    marginBottom: 8,
   },
-  inviteButtonDisabled: {
+  modalButtonDisabled: {
     opacity: 0.7,
   },
-  inviteButtonGradient: {
+  modalButtonGradient: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     padding: 16,
     gap: 8,
   },
-  inviteButtonText: {
+  modalButtonText: {
     color: "white",
     fontSize: 16,
     fontWeight: "600",
+  },
+  caregiverModalInfo: {
+    alignItems: "center",
+    marginBottom: 24,
+  },
+  caregiverModalAvatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+    overflow: "hidden",
+  },
+  caregiverModalAvatarGradient: {
+    width: "100%",
+    height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  caregiverModalName: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#1F2937",
+    marginBottom: 4,
+  },
+  caregiverModalEmail: {
+    fontSize: 16,
+    color: "#4A90E2",
+    marginBottom: 4,
+  },
+  caregiverModalRole: {
+    fontSize: 14,
+    color: "#64748B",
+  },
+  modalActions: {
+    gap: 12,
+  },
+  deleteButton: {
+    backgroundColor: "#FEE2E2",
   },
 });
 

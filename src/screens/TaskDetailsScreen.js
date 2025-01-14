@@ -18,6 +18,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useQueryClient, useMutation, useQuery } from "@tanstack/react-query";
 import { deleteTask, createNote, getNote, deleteNote } from "../api/CreateTask";
 import { useUser } from "../api/UserContext";
+import { getLovedOneCaregivers } from "../api/Users";
 
 const { width } = Dimensions.get("window");
 
@@ -30,6 +31,63 @@ const TaskDetailsScreen = ({ route, navigation }) => {
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const rotateAnim = useRef(new Animated.Value(0)).current;
   const { token } = useUser();
+  const [caregivers, setCaregivers] = useState([]);
+  const [isLoadingCaregivers, setIsLoadingCaregivers] = useState(false);
+
+  useEffect(() => {
+    const fetchCaregivers = async () => {
+      if (task?.loved_one?._id) {
+        try {
+          setIsLoadingCaregivers(true);
+          const data = await getLovedOneCaregivers(task.loved_one._id);
+          setCaregivers(data || []);
+        } catch (error) {
+          console.error("Error fetching caregivers:", error);
+        } finally {
+          setIsLoadingCaregivers(false);
+        }
+      }
+    };
+
+    fetchCaregivers();
+  }, [task?.loved_one?._id]);
+
+  const getAssignedCaregiverName = () => {
+    console.log("Task assigned_to:", task.assigned_to);
+
+    if (!task.assigned_to) {
+      return "Not assigned";
+    }
+
+    // If we have a name directly in the assigned_to object
+    if (task.assigned_to.name) {
+      return task.assigned_to.name;
+    }
+
+    // If we have caregivers array, try to find the assigned caregiver
+    if (caregivers && caregivers.length > 0) {
+      const assignedCaregiver = caregivers.find(
+        (caregiver) =>
+          caregiver._id === task.assigned_to._id ||
+          caregiver._id === task.assigned_to
+      );
+
+      if (assignedCaregiver) {
+        return (
+          assignedCaregiver.user?.name ||
+          assignedCaregiver.name ||
+          "Not assigned"
+        );
+      }
+    }
+
+    // If we have a string value
+    if (typeof task.assigned_to === "string") {
+      return task.assigned_to;
+    }
+
+    return "Not assigned";
+  };
 
   // Delete task mutation
   const deleteMutation = useMutation({
@@ -485,7 +543,9 @@ const TaskDetailsScreen = ({ route, navigation }) => {
               <View style={styles.detailText}>
                 <Text style={styles.detailLabel}>Assigned To</Text>
                 <Text style={styles.detailValue}>
-                  {task.assigned_to?.name || "Not assigned"}
+                  {isLoadingCaregivers
+                    ? "Loading..."
+                    : getAssignedCaregiverName()}
                 </Text>
               </View>
             </View>
