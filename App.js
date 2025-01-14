@@ -22,7 +22,9 @@ import EditProfileScreen from "./src/screens/EditProfileScreen";
 import MedicalHistoryScreen from "./src/screens/MedicalHistoryScreen";
 import HealthScreen from "./src/screens/HealthScreen";
 import MedicationForm from "./src/screens/Medication";
-import CarePlanScreen from "./src/screens/CarePlanScreen";
+import LovedOnesListScreen from "./src/screens/LovedOnesListScreen";
+import { gestureHandlerRootHOC } from "react-native-gesture-handler";
+
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 const queryClient = new QueryClient();
@@ -115,7 +117,10 @@ export default function App() {
                 component={MedicalHistoryScreen}
               />
               <Stack.Screen name="MedicationForm" component={MedicationForm} />
-              <Stack.Screen name="CarePlan" component={CarePlanScreen} />
+              <Stack.Screen
+                name="LovedOnesList"
+                component={LovedOnesListScreen}
+              />
             </Stack.Navigator>
           </NavigationContainer>
         </SafeAreaProvider>

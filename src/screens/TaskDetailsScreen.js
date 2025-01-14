@@ -10,23 +10,111 @@ import {
   Pressable,
   Keyboard,
   Dimensions,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useQueryClient, useMutation, useQuery } from "@tanstack/react-query";
 import { deleteTask, createNote, getNote, deleteNote } from "../api/CreateTask";
+import { useUser } from "../api/UserContext";
 
 const { width } = Dimensions.get("window");
 
 const TaskDetailsScreen = ({ route, navigation }) => {
   const { task } = route.params;
+  const queryClient = useQueryClient();
   const [isEditingNote, setIsEditingNote] = useState(false);
   const [noteText, setNoteText] = useState("");
-  const [isKeyboardVisible, setKeyboardVisible] = useState(false);
-  const queryClient = useQueryClient();
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const rotateAnim = useRef(new Animated.Value(0)).current;
+  const { token } = useUser();
+
+  // Delete task mutation
+  const deleteMutation = useMutation({
+    mutationFn: async (taskId) => {
+      const response = await deleteTask(taskId);
+      return { taskId, response };
+    },
+    onMutate: async (taskId) => {
+      try {
+        // Cancel any outgoing refetches
+        await queryClient.cancelQueries({ queryKey: ["tasks"] });
+
+        // Snapshot the previous value
+        const previousData = queryClient.getQueryData(["tasks"]);
+
+        // Optimistically update to the new value
+        queryClient.setQueryData(["tasks"], (old) => {
+          if (!old) return old;
+          return {
+            ...old,
+            pending: (old.pending || []).filter((t) => t._id !== taskId),
+            completed: (old.completed || []).filter((t) => t._id !== taskId),
+            all: (old.all || []).filter((t) => t._id !== taskId),
+          };
+        });
+
+        return { previousData };
+      } catch (error) {
+        console.error("Error in onMutate:", error);
+        return { previousData: null };
+      }
+    },
+    onError: (error, taskId, context) => {
+      console.error("Delete task error:", error);
+      if (context?.previousData) {
+        queryClient.setQueryData(["tasks"], context.previousData);
+      }
+      Alert.alert("Error", "Failed to delete task. Please try again.");
+    },
+    onSuccess: (data) => {
+      console.log("Task deleted successfully:", data);
+      Alert.alert(
+        "Success",
+        "Task deleted successfully",
+        [
+          {
+            text: "OK",
+            onPress: () => {
+              queryClient.invalidateQueries({ queryKey: ["tasks"] });
+              navigation.goBack();
+            },
+          },
+        ],
+        { cancelable: false }
+      );
+    },
+  });
+
+  const handleDeleteTask = () => {
+    if (!task || !task._id) {
+      console.error("Invalid task object:", task);
+      Alert.alert("Error", "Could not delete task. Task ID is missing.");
+      return;
+    }
+
+    Alert.alert(
+      "Delete Task",
+      "Are you sure you want to delete this task?",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => {
+            console.log("Attempting to delete task:", task._id);
+            deleteMutation.mutate(task._id);
+          },
+        },
+      ],
+      { cancelable: true }
+    );
+  };
 
   // Update note query to handle loading and error states better
   const { data: noteData, isLoading: isLoadingNote } = useQuery({
@@ -63,48 +151,6 @@ const TaskDetailsScreen = ({ route, navigation }) => {
     staleTime: 0,
     cacheTime: 0,
     refetchInterval: 3000, // Refetch every 3 seconds
-  });
-
-  // Delete task mutation
-  const deleteMutation = useMutation({
-    mutationFn: deleteTask,
-    onMutate: async (taskId) => {
-      await queryClient.cancelQueries({
-        queryKey: ["tasks", task.loved_one._id],
-      });
-
-      const previousTasks = queryClient.getQueryData([
-        "tasks",
-        task.loved_one._id,
-      ]);
-
-      queryClient.setQueryData(["tasks", task.loved_one._id], (old) => {
-        if (!old) return old;
-        return {
-          ...old,
-          pending: old.pending.filter((t) => t._id !== taskId),
-          total: (old.total || 0) - 1,
-        };
-      });
-
-      return { previousTasks };
-    },
-    onError: (err, taskId, context) => {
-      queryClient.setQueryData(
-        ["tasks", task.loved_one._id],
-        context.previousTasks
-      );
-      Alert.alert("Error", "Failed to delete task. Please try again.");
-    },
-    onSuccess: () => {
-      Alert.alert("Success", "Task deleted successfully");
-      navigation.goBack();
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["tasks", task.loved_one._id],
-      });
-    },
   });
 
   // Update note mutation
@@ -159,21 +205,37 @@ const TaskDetailsScreen = ({ route, navigation }) => {
     },
   });
 
-  const handleDeleteTask = () => {
-    Alert.alert("Delete Task", "Are you sure you want to delete this task?", [
-      {
-        text: "Cancel",
-        style: "cancel",
-      },
-      {
-        text: "Delete",
-        style: "destructive",
-        onPress: () => {
-          deleteMutation.mutate(task._id);
-        },
-      },
-    ]);
-  };
+  // Add status update mutation
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ taskId, status }) => {
+      const response = await fetch(
+        `https://seal-app-doaaw.ondigitalocean.app/api/tasks/${taskId}/status`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ status }),
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Failed to update task status");
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      // Invalidate and refetch tasks query to update the list
+      queryClient.invalidateQueries(["tasks", task.loved_one._id]);
+      navigation.goBack();
+    },
+    onError: (error) => {
+      Alert.alert("Error", error.message || "Failed to update task status");
+    },
+  });
 
   const handleDeleteNote = (note) => {
     Alert.alert(
@@ -207,11 +269,11 @@ const TaskDetailsScreen = ({ route, navigation }) => {
   useEffect(() => {
     const keyboardWillShowListener = Keyboard.addListener(
       "keyboardWillShow",
-      () => setKeyboardVisible(true)
+      () => setIsKeyboardVisible(true)
     );
     const keyboardWillHideListener = Keyboard.addListener(
       "keyboardWillHide",
-      () => setKeyboardVisible(false)
+      () => setIsKeyboardVisible(false)
     );
 
     Animated.parallel([
@@ -266,24 +328,11 @@ const TaskDetailsScreen = ({ route, navigation }) => {
     }
   };
 
-  const handleToggleComplete = async () => {
-    try {
-      // Update the task in the cache
-      const existingTasks = queryClient.getQueryData(["tasks"]) || [];
-      const updatedTasks = existingTasks.map((t) =>
-        t.id === task.id ? { ...t, completed: !t.completed } : t
-      );
-      queryClient.setQueryData(["tasks"], updatedTasks);
-
-      // TODO: Add API call to update task status
-      Alert.alert(
-        "Success",
-        `Task marked as ${task.completed ? "incomplete" : "complete"}!`
-      );
-      navigation.goBack();
-    } catch (error) {
-      Alert.alert("Error", "Failed to update task status. Please try again.");
-    }
+  const handleToggleComplete = () => {
+    updateStatusMutation.mutate({
+      taskId: task._id,
+      status: task.status === "COMPLETED" ? "PENDING" : "COMPLETED",
+    });
   };
 
   const handleRefresh = async () => {
@@ -786,27 +835,44 @@ const TaskDetailsScreen = ({ route, navigation }) => {
           <Pressable
             style={({ pressed }) => [
               styles.actionButton,
-              task.completed ? styles.reopenButton : styles.completeButton,
+              task.status === "COMPLETED"
+                ? styles.reopenButton
+                : styles.completeButton,
               pressed && styles.pressed,
             ]}
             onPress={handleToggleComplete}
+            disabled={updateStatusMutation.isLoading}
           >
             <LinearGradient
               colors={
-                task.completed ? ["#EA4335", "#D32F2F"] : ["#34A853", "#2E8B4A"]
+                task.status === "COMPLETED"
+                  ? ["#EA4335", "#D32F2F"]
+                  : ["#34A853", "#2E8B4A"]
               }
               style={styles.actionButtonGradient}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
             >
-              <Ionicons
-                name={task.completed ? "refresh" : "checkmark-circle"}
-                size={24}
-                color="white"
-              />
-              <Text style={styles.actionButtonText}>
-                {task.completed ? "Reopen Task" : "Mark as Complete"}
-              </Text>
+              {updateStatusMutation.isLoading ? (
+                <ActivityIndicator color="white" />
+              ) : (
+                <>
+                  <Ionicons
+                    name={
+                      task.status === "COMPLETED"
+                        ? "refresh"
+                        : "checkmark-circle"
+                    }
+                    size={24}
+                    color="white"
+                  />
+                  <Text style={styles.actionButtonText}>
+                    {task.status === "COMPLETED"
+                      ? "Reopen Task"
+                      : "Mark as Complete"}
+                  </Text>
+                </>
+              )}
             </LinearGradient>
           </Pressable>
         </View>
