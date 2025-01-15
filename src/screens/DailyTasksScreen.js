@@ -348,15 +348,52 @@ const DailyTasksScreen = ({ navigation }) => {
             <View style={styles.metadataRow}>
               <View style={styles.assigneeContainer}>
                 <Ionicons
+                  name="heart-outline"
+                  size={16}
+                  color={categoryInfo.color}
+                />
+                <View style={styles.assigneeInfo}>
+                  <Text
+                    style={[
+                      styles.assigneeLabel,
+                      { color: categoryInfo.color },
+                    ]}
+                  >
+                    Loved One:
+                  </Text>
+                  <Text
+                    style={[styles.assigneeText, { color: categoryInfo.color }]}
+                  >
+                    {task.loved_one?.name || "Not assigned"}
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.metadataRow}>
+              <View style={styles.assigneeContainer}>
+                <Ionicons
                   name="person-outline"
                   size={16}
                   color={categoryInfo.color}
                 />
-                <Text
-                  style={[styles.assigneeText, { color: categoryInfo.color }]}
-                >
-                  {task.loved_one?.name || "Unassigned"}
-                </Text>
+                <View style={styles.assigneeInfo}>
+                  <Text
+                    style={[
+                      styles.assigneeLabel,
+                      { color: categoryInfo.color },
+                    ]}
+                  >
+                    Assigned To:
+                  </Text>
+                  <Text
+                    style={[styles.assigneeText, { color: categoryInfo.color }]}
+                  >
+                    {task.assigned_to?.user?.name ||
+                      task.assigned_to?.name ||
+                      "Not assigned"}
+                  </Text>
+                </View>
               </View>
             </View>
           </View>
@@ -742,39 +779,40 @@ const styles = StyleSheet.create({
   },
   tabContainer: {
     flexDirection: "row",
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    padding: 6,
-    marginBottom: 20,
-    marginTop: 8,
+    backgroundColor: "white",
+    borderRadius: 12,
+    marginBottom: 16,
+    overflow: "hidden",
     ...Platform.select({
       ios: {
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
-        shadowRadius: 8,
+        shadowRadius: 4,
       },
       android: {
-        elevation: 2,
+        elevation: 4,
       },
     }),
   },
   tab: {
     flex: 1,
-    paddingVertical: 8,
+    paddingVertical: 12,
     alignItems: "center",
-    borderRadius: 8,
+    borderBottomWidth: 2,
+    borderBottomColor: "#E5E7EB",
   },
   activeTab: {
-    backgroundColor: "#4A90E2",
+    borderBottomColor: "#3B82F6",
+    backgroundColor: "#EFF6FF",
   },
   tabText: {
     fontSize: 14,
-    color: "#666",
     fontWeight: "600",
+    color: "#6B7280",
   },
   activeTabText: {
-    color: "white",
+    color: "#3B82F6",
   },
   taskList: {
     flex: 1,
@@ -1123,6 +1161,18 @@ const styles = StyleSheet.create({
   },
   activeFilterText: {
     color: "white",
+  },
+  assigneeInfo: {
+    flex: 1,
+  },
+  assigneeLabel: {
+    fontSize: 12,
+    fontWeight: "500",
+    marginBottom: 2,
+  },
+  assigneeText: {
+    fontSize: 14,
+    fontWeight: "600",
   },
 });
 

@@ -17,10 +17,15 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { getLovedOneCaregivers, inviteCaregiver } from "../api/Users";
-import { useQuery } from "@tanstack/react-query";
+import {
+  getLovedOneCaregivers,
+  inviteCaregiver,
+  deleteLovedOne,
+} from "../api/Users";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getTask } from "../api/CreateTask";
 import { useUser } from "../api/UserContext";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const { width } = Dimensions.get("window");
 
@@ -198,7 +203,6 @@ const CaregiverActionsModal = ({
             <Pressable
               style={({ pressed }) => [
                 styles.modalButton,
-                styles.deleteButton,
                 pressed && styles.pressed,
               ]}
               onPress={() => {
@@ -207,7 +211,7 @@ const CaregiverActionsModal = ({
               }}
             >
               <LinearGradient
-                colors={["#EA4335", "#D32F2F"]}
+                colors={["#EF4444", "#DC2626"]}
                 style={styles.modalButtonGradient}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
@@ -225,7 +229,7 @@ const CaregiverActionsModal = ({
 
 const LovedOneDetailsScreen = ({ route, navigation }) => {
   const { lovedOne } = route.params;
-  const { token } = useUser();
+  const { token, user } = useUser();
   const [caregivers, setCaregivers] = useState([]);
   const [isLoadingCaregivers, setIsLoadingCaregivers] = useState(true);
   const [inviteModalVisible, setInviteModalVisible] = useState(false);
@@ -233,6 +237,7 @@ const LovedOneDetailsScreen = ({ route, navigation }) => {
   const [isInviting, setIsInviting] = useState(false);
   const [selectedCaregiver, setSelectedCaregiver] = useState(null);
   const [caregiverModalVisible, setCaregiverModalVisible] = useState(false);
+  const queryClient = useQueryClient();
 
   // Add query to fetch tasks for this loved one
   const {
@@ -258,6 +263,38 @@ const LovedOneDetailsScreen = ({ route, navigation }) => {
         completed: data.completed || [],
         total: data.total || 0,
       };
+    },
+  });
+
+  // Add delete mutation
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch(
+        `https://seal-app-doaaw.ondigitalocean.app/api/caregivers/loved-ones/${lovedOne._id}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to delete loved one");
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      // Invalidate and refetch loved ones
+      queryClient.invalidateQueries(["lovedOnes"]);
+      Alert.alert("Success", "Loved one deleted successfully");
+      // Navigate back to loved ones list
+      navigation.navigate("LovedOnesList");
+    },
+    onError: (error) => {
+      Alert.alert("Error", error.message || "Failed to delete loved one");
     },
   });
 
@@ -359,10 +396,63 @@ const LovedOneDetailsScreen = ({ route, navigation }) => {
     }
   };
 
-  // Add these placeholder functions (to be implemented later with API endpoints)
   const handleDeleteCaregiver = (caregiver) => {
-    // Will implement when API endpoint is provided
-    console.log("Delete caregiver:", caregiver);
+    Alert.alert(
+      "Delete Caregiver",
+      `Are you sure you want to remove ${
+        caregiver.user?.name || "this caregiver"
+      }?`,
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              const token = await AsyncStorage.getItem("token");
+              const response = await fetch(
+                `https://seal-app-doaaw.ondigitalocean.app/api/caregivers/loved-ones/${lovedOne._id}/caregivers/${caregiver._id}`,
+                {
+                  method: "DELETE",
+                  headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json",
+                  },
+                }
+              );
+
+              if (!response.ok) {
+                const errorData = await response.json();
+                if (errorData.message?.includes("creator")) {
+                  Alert.alert(
+                    "Permission Denied",
+                    "Only the creator of this loved one can delete caregivers."
+                  );
+                } else {
+                  Alert.alert(
+                    "Error",
+                    "Failed to delete caregiver. Please try again."
+                  );
+                }
+                return;
+              }
+
+              Alert.alert("Success", "Caregiver deleted successfully");
+              queryClient.invalidateQueries(["caregivers", lovedOne._id]);
+            } catch (error) {
+              console.error("Error deleting caregiver:", error);
+              Alert.alert(
+                "Error",
+                "Failed to delete caregiver. Please try again."
+              );
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleChangeRole = (caregiver) => {
@@ -370,10 +460,61 @@ const LovedOneDetailsScreen = ({ route, navigation }) => {
     console.log("Change role for caregiver:", caregiver);
   };
 
+  const handleDeleteLovedOne = () => {
+    try {
+      // Check if there is only one caregiver
+      if (caregivers?.length !== 1) {
+        Alert.alert(
+          "Permission Denied",
+          "You can only delete a loved one when there is exactly one caregiver.",
+          [{ text: "OK", style: "default" }]
+        );
+        return;
+      }
+
+      Alert.alert(
+        "Delete Loved One",
+        `Are you sure you want to delete ${lovedOne.name}? This action cannot be undone.`,
+        [
+          {
+            text: "Cancel",
+            style: "cancel",
+          },
+          {
+            text: "Delete",
+            style: "destructive",
+            onPress: async () => {
+              try {
+                await deleteLovedOne(lovedOne._id, token);
+                queryClient.invalidateQueries(["lovedOnes"]);
+                Alert.alert("Success", "Loved one deleted successfully", [
+                  {
+                    text: "OK",
+                    onPress: () => navigation.goBack(),
+                  },
+                ]);
+              } catch (error) {
+                console.error("Error deleting loved one:", error);
+                Alert.alert(
+                  "Error",
+                  error.message || "Failed to delete loved one"
+                );
+              }
+            },
+          },
+        ],
+        { cancelable: true }
+      );
+    } catch (error) {
+      console.error("Error in handleDeleteLovedOne:", error);
+      Alert.alert("Error", "An unexpected error occurred. Please try again.");
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <LinearGradient
-        colors={["#4A90E2", "#357ABD"]}
+        colors={["#3B82F6", "#2563EB"]}
         style={styles.header}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
@@ -388,6 +529,20 @@ const LovedOneDetailsScreen = ({ route, navigation }) => {
           <Ionicons name="arrow-back" size={24} color="white" />
         </Pressable>
         <Text style={styles.headerTitle}>{lovedOne.name}'s Profile</Text>
+        <TouchableOpacity
+          style={styles.deleteButton}
+          onPress={handleDeleteLovedOne}
+          activeOpacity={0.7}
+        >
+          <LinearGradient
+            colors={["#EF4444", "#DC2626"]}
+            style={styles.deleteButtonGradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          >
+            <Ionicons name="trash-outline" size={20} color="white" />
+          </LinearGradient>
+        </TouchableOpacity>
       </LinearGradient>
 
       <ScrollView style={styles.content}>
@@ -428,19 +583,26 @@ const LovedOneDetailsScreen = ({ route, navigation }) => {
             <View style={styles.statsContainer}>
               <View style={styles.statItem}>
                 <Text style={styles.statValue}>
-                  {tasks.pending.length + tasks.completed.length}
+                  {tasks.pending?.length || 0}
                 </Text>
-                <Text style={styles.statLabel}>Tasks</Text>
+                <Text style={styles.statLabel}>Pending Tasks</Text>
               </View>
               <View style={styles.statDivider} />
               <View style={styles.statItem}>
-                <Text style={styles.statValue}>{caregivers.length || 0}</Text>
-                <Text style={styles.statLabel}>Caregivers</Text>
+                <Text style={[styles.statValue, { color: "#059669" }]}>
+                  {tasks.completed?.length || 0}
+                </Text>
+                <Text style={styles.statLabel}>Completed</Text>
               </View>
               <View style={styles.statDivider} />
               <View style={styles.statItem}>
-                <Text style={styles.statValue}>
-                  {tasks.completed.length > 0
+                <Text
+                  style={[
+                    styles.statValue,
+                    tasks.completed?.length > 0 ? { color: "#4A90E2" } : {},
+                  ]}
+                >
+                  {tasks.completed?.length > 0
                     ? Math.round(
                         (tasks.completed.length /
                           (tasks.pending.length + tasks.completed.length)) *
@@ -487,7 +649,9 @@ const LovedOneDetailsScreen = ({ route, navigation }) => {
                   style={styles.actionGradientButton}
                 >
                   <Ionicons name="create-outline" size={24} color="white" />
-                  <Text style={styles.actionButtonText}>Health{"\n"}Info</Text>
+                  <Text style={styles.actionButtonText}>
+                    Medical{"\n"}History
+                  </Text>
                 </LinearGradient>
               </Pressable>
               <Pressable
@@ -543,14 +707,22 @@ const LovedOneDetailsScreen = ({ route, navigation }) => {
                       </LinearGradient>
                     </View>
                     <View style={styles.caregiverInfo}>
-                      <Text style={styles.caregiverName}>
-                        {caregiver.user.name}
-                      </Text>
+                      <View style={styles.caregiverNameContainer}>
+                        <Text style={styles.caregiverName}>
+                          {caregiver.user.name}
+                        </Text>
+                        {index === 0 && (
+                          <View style={styles.primaryBadge}>
+                            <Ionicons name="star" size={12} color="#F59E0B" />
+                            <Text style={styles.primaryBadgeText}>Primary</Text>
+                          </View>
+                        )}
+                      </View>
                       <Text style={styles.caregiverEmail}>
                         {caregiver.user.email}
                       </Text>
                       <Text style={styles.caregiverRole}>
-                        {caregiver.role} Caregiver
+                        {index === 0 ? "Primary" : "Secondary"} Caregiver
                       </Text>
                     </View>
                     <Ionicons
@@ -599,6 +771,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
     padding: 16,
     paddingTop: 20,
   },
@@ -610,7 +783,8 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "600",
     color: "white",
-    marginLeft: 16,
+    flex: 1,
+    textAlign: "center",
   },
   content: {
     flex: 1,
@@ -675,6 +849,7 @@ const styles = StyleSheet.create({
   statsCard: {
     padding: 0,
     overflow: "hidden",
+    backgroundColor: "white",
   },
   statsContainer: {
     flexDirection: "row",
@@ -694,6 +869,7 @@ const styles = StyleSheet.create({
   statLabel: {
     fontSize: 14,
     color: "#64748B",
+    textAlign: "center",
   },
   statDivider: {
     width: 1,
@@ -789,6 +965,7 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.8,
+    transform: [{ scale: 0.95 }],
   },
   modalOverlay: {
     flex: 1,
@@ -911,7 +1088,44 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   deleteButton: {
-    backgroundColor: "#FEE2E2",
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  deleteButtonGradient: {
+    width: "100%",
+    height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  caregiverNameContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 2,
+  },
+  primaryBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FEF3C7",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
+  },
+  primaryBadgeText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#D97706",
   },
 });
 

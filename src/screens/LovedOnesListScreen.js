@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, memo } from "react";
 import {
   View,
   Text,
@@ -13,6 +13,8 @@ import {
   TextInput,
   Animated,
   Dimensions,
+  TouchableOpacity,
+  KeyboardAvoidingView,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -21,7 +23,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getAllLovedOnes, deleteLovedOne, addLovedOne } from "../api/Users";
 import { useUser } from "../api/UserContext";
 
-const AddLovedOneModal = ({ visible, onClose, onAdd, loading }) => {
+const AddLovedOneModal = memo(({ visible, onClose, onAdd, loading }) => {
   const [formData, setFormData] = useState({
     name: "",
     age: "",
@@ -44,79 +46,167 @@ const AddLovedOneModal = ({ visible, onClose, onAdd, loading }) => {
       visible={visible}
       onRequestClose={handleClose}
     >
-      <View style={styles.modalContainer}>
-        <View style={styles.modalContent}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Add Loved One</Text>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={{ flex: 1 }}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Add Loved One</Text>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.closeButton,
+                  pressed && styles.pressed,
+                ]}
+                onPress={handleClose}
+              >
+                <Ionicons name="close" size={24} color="#666" />
+              </Pressable>
+            </View>
+
+            <View style={styles.formContainer}>
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Name</Text>
+                <TextInput
+                  style={styles.input}
+                  value={formData.name}
+                  onChangeText={(text) =>
+                    setFormData({ ...formData, name: text })
+                  }
+                  placeholder="Enter name"
+                  placeholderTextColor="#64748B"
+                />
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Age</Text>
+                <TextInput
+                  style={styles.input}
+                  value={formData.age}
+                  onChangeText={(text) =>
+                    setFormData({ ...formData, age: text })
+                  }
+                  placeholder="Enter age"
+                  placeholderTextColor="#64748B"
+                  keyboardType="numeric"
+                />
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Medical Condition</Text>
+                <TextInput
+                  style={[styles.input, styles.textArea]}
+                  value={formData.medical_history}
+                  onChangeText={(text) =>
+                    setFormData({ ...formData, medical_history: text })
+                  }
+                  placeholder="Enter medical condition"
+                  placeholderTextColor="#64748B"
+                  multiline
+                  numberOfLines={4}
+                  textAlignVertical="top"
+                />
+              </View>
+            </View>
+
             <Pressable
               style={({ pressed }) => [
-                styles.closeButton,
+                styles.modalAddButton,
                 pressed && styles.pressed,
+                loading && styles.disabledButton,
               ]}
-              onPress={handleClose}
+              onPress={handleSubmit}
+              disabled={loading}
             >
-              <Ionicons name="close" size={24} color="#666" />
+              {loading ? (
+                <ActivityIndicator color="white" />
+              ) : (
+                <Text style={styles.modalAddButtonText}>Add Loved One</Text>
+              )}
             </Pressable>
           </View>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+});
 
-          <View style={styles.formContainer}>
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Name</Text>
-              <TextInput
-                style={styles.input}
-                value={formData.name}
-                onChangeText={(text) =>
-                  setFormData({ ...formData, name: text })
-                }
-                placeholder="Enter name"
-              />
-            </View>
+const LovedOneCard = ({ lovedOne, onPress, onDelete, index }) => {
+  // Calculate pending tasks only
+  const pendingTasks = lovedOne.tasks?.pending?.length || 0;
+  const completedTasks = lovedOne.tasks?.completed?.length || 0;
+  const totalTasks = pendingTasks + completedTasks;
 
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Age</Text>
-              <TextInput
-                style={styles.input}
-                value={formData.age}
-                onChangeText={(text) => setFormData({ ...formData, age: text })}
-                placeholder="Enter age"
-                keyboardType="numeric"
-              />
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Medical History</Text>
-              <TextInput
-                style={[styles.input, styles.textArea]}
-                value={formData.medical_history}
-                onChangeText={(text) =>
-                  setFormData({ ...formData, medical_history: text })
-                }
-                placeholder="Enter medical history"
-                multiline
-                numberOfLines={4}
-                textAlignVertical="top"
-              />
-            </View>
+  return (
+    <View style={styles.card}>
+      <LinearGradient
+        colors={["#F0F9FF", "#E0F2FE"]}
+        style={styles.cardGradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+      >
+        <View style={styles.cardInner}>
+          <View style={styles.counterBadge}>
+            <Text style={styles.counterText}>{index + 1}</Text>
           </View>
-
           <Pressable
             style={({ pressed }) => [
-              styles.modalAddButton,
+              styles.cardContent,
               pressed && styles.pressed,
-              loading && styles.disabledButton,
             ]}
-            onPress={handleSubmit}
-            disabled={loading}
+            onPress={onPress}
           >
-            {loading ? (
-              <ActivityIndicator color="white" />
-            ) : (
-              <Text style={styles.modalAddButtonText}>Add Loved One</Text>
-            )}
+            <View style={styles.avatarContainer}>
+              {lovedOne.profileImage ? (
+                <Image
+                  source={{ uri: lovedOne.profileImage }}
+                  style={styles.avatar}
+                />
+              ) : (
+                <LinearGradient
+                  colors={["#4C51BF", "#434190"]}
+                  style={styles.avatarGradient}
+                >
+                  <Ionicons name="person" size={24} color="white" />
+                </LinearGradient>
+              )}
+            </View>
+            <View style={styles.infoContainer}>
+              <Text style={styles.name}>{lovedOne.name}</Text>
+              <View style={styles.relationshipContainer}>
+                <Ionicons name="heart" size={14} color="#4A90E2" />
+                <Text style={styles.relationship}>{lovedOne.relationship}</Text>
+              </View>
+              {totalTasks > 0 && (
+                <View style={styles.taskStatusContainer}>
+                  <Text style={styles.taskStatusText}>
+                    {pendingTasks} pending • {completedTasks} completed
+                  </Text>
+                  <Text style={styles.completionRate}>
+                    {Math.round((completedTasks / totalTasks) * 100)}% complete
+                  </Text>
+                </View>
+              )}
+            </View>
           </Pressable>
+          <TouchableOpacity
+            style={styles.deleteButton}
+            onPress={() => onDelete(lovedOne)}
+            activeOpacity={0.7}
+          >
+            <LinearGradient
+              colors={["#EF4444", "#DC2626"]}
+              style={styles.deleteButtonGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <Ionicons name="trash-outline" size={20} color="white" />
+            </LinearGradient>
+          </TouchableOpacity>
         </View>
-      </View>
-    </Modal>
+      </LinearGradient>
+    </View>
   );
 };
 
@@ -172,11 +262,8 @@ const LovedOnesListScreen = ({ navigation }) => {
     }
   };
 
-  const handleDeleteLovedOne = async (lovedOneId) => {
+  const handleDeleteLovedOne = async (lovedOne) => {
     try {
-      const lovedOne = lovedOnes.find((item) => item._id === lovedOneId);
-      if (!lovedOne) return;
-
       // Check if there is only one caregiver
       if (lovedOne.caregivers?.length !== 1) {
         Alert.alert(
@@ -189,7 +276,7 @@ const LovedOnesListScreen = ({ navigation }) => {
 
       Alert.alert(
         "Delete Loved One",
-        "Are you sure you want to delete this loved one?",
+        `Are you sure you want to delete ${lovedOne.name}? This action cannot be undone.`,
         [
           {
             text: "Cancel",
@@ -200,19 +287,20 @@ const LovedOnesListScreen = ({ navigation }) => {
             style: "destructive",
             onPress: async () => {
               try {
-                await deleteLovedOne(lovedOneId, token);
+                await deleteLovedOne(lovedOne._id, token);
                 queryClient.invalidateQueries(["lovedOnes"]);
                 Alert.alert("Success", "Loved one deleted successfully");
               } catch (error) {
                 console.error("Error deleting loved one:", error);
                 Alert.alert(
                   "Error",
-                  "Failed to delete loved one. Please try again."
+                  error.message || "Failed to delete loved one"
                 );
               }
             },
           },
-        ]
+        ],
+        { cancelable: true }
       );
     } catch (error) {
       console.error("Error in handleDeleteLovedOne:", error);
@@ -295,7 +383,7 @@ const LovedOnesListScreen = ({ navigation }) => {
                       styles.deleteButton,
                       pressed && styles.deletePressed,
                     ]}
-                    onPress={() => handleDeleteLovedOne(lovedOne._id)}
+                    onPress={() => handleDeleteLovedOne(lovedOne)}
                   >
                     <View style={styles.deleteButtonInner}>
                       <Ionicons
@@ -317,7 +405,7 @@ const LovedOnesListScreen = ({ navigation }) => {
                       color="#4A90E2"
                     />
                     <Text style={styles.medicalHistoryLabel}>
-                      Medical History
+                      Medical Condition
                     </Text>
                   </View>
                   <Text style={styles.medicalHistoryText}>
@@ -625,13 +713,13 @@ const styles = StyleSheet.create({
     color: "#6B7280",
   },
   deleteButton: {
-    padding: 8,
-    borderRadius: 20,
-    backgroundColor: "rgba(220, 38, 38, 0.1)",
+    marginLeft: 8,
   },
   deleteButtonInner: {
-    width: 24,
-    height: 24,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(234, 67, 53, 0.1)",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -802,10 +890,6 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#1F2937",
   },
-  closeButton: {
-    padding: 8,
-    borderRadius: 20,
-  },
   formContainer: {
     marginBottom: 20,
   },
@@ -845,6 +929,144 @@ const styles = StyleSheet.create({
   },
   disabledButton: {
     opacity: 0.5,
+  },
+  card: {
+    borderRadius: 16,
+    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+    overflow: "hidden",
+  },
+  cardGradient: {
+    width: "100%",
+  },
+  cardInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: 16,
+    position: "relative",
+  },
+  cardContent: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  avatarContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    overflow: "hidden",
+    marginRight: 16,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  avatar: {
+    width: "100%",
+    height: "100%",
+  },
+  avatarGradient: {
+    width: "100%",
+    height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  infoContainer: {
+    flex: 1,
+  },
+  name: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#1F2937",
+    marginBottom: 6,
+  },
+  relationshipContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  relationship: {
+    fontSize: 14,
+    color: "#4A90E2",
+    fontWeight: "500",
+  },
+  counterBadge: {
+    position: "absolute",
+    top: -8,
+    left: -8,
+    backgroundColor: "#4A90E2",
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 3,
+    zIndex: 1,
+  },
+  counterText: {
+    color: "white",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  deleteButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    overflow: "hidden",
+    marginLeft: 12,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  deleteButtonGradient: {
+    width: "100%",
+    height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  pressed: {
+    opacity: 0.8,
+    transform: [{ scale: 0.98 }],
+  },
+  taskStatusContainer: {
+    marginTop: 4,
+    backgroundColor: "rgba(255, 255, 255, 0.5)",
+    borderRadius: 8,
+    padding: 4,
+  },
+  taskStatusText: {
+    fontSize: 12,
+    color: "#4B5563",
+    fontWeight: "500",
+  },
+  completionRate: {
+    fontSize: 12,
+    color: "#059669",
+    fontWeight: "600",
   },
 });
 

@@ -15,16 +15,46 @@ import {
   ActivityIndicator,
   Animated,
   Dimensions,
+  AsyncStorage,
 } from "react-native";
-
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { register } from "../api/auth";
-import { useUser } from "../api/UserContext"; // Import UserContext
+import { useUser } from "../api/UserContext";
 import axios from "axios";
 import { LinearGradient } from "expo-linear-gradient";
 
 const { width } = Dimensions.get("window");
+
+const InputField = ({
+  icon,
+  placeholder,
+  value,
+  onChangeText,
+  secureTextEntry,
+  keyboardType,
+}) => (
+  <View style={styles.inputWrapper}>
+    <LinearGradient
+      colors={["#4A90E2", "#357ABD"]}
+      style={styles.iconContainer}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+    >
+      <Ionicons name={icon} size={20} color="white" />
+    </LinearGradient>
+    <TextInput
+      style={styles.input}
+      placeholder={placeholder}
+      value={value}
+      placeholderTextColor="#666"
+      onChangeText={onChangeText}
+      secureTextEntry={secureTextEntry}
+      keyboardType={keyboardType}
+      autoCapitalize="none"
+    />
+  </View>
+);
 
 const RegisterScreen = ({ navigation }) => {
   const [name, setName] = useState("");
@@ -32,7 +62,7 @@ const RegisterScreen = ({ navigation }) => {
   const [password, setPassword] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [loading, setLoading] = useState(false);
-  const { saveUser } = useUser(); // Access UserContext to save user data
+  const { saveUser } = useUser();
 
   const [verificationModalVisible, setVerificationModalVisible] =
     useState(false);
@@ -90,11 +120,6 @@ const RegisterScreen = ({ navigation }) => {
 
     try {
       setVerificationLoading(true);
-      console.log("Sending verification request:", {
-        email: registeredEmail,
-        code: verificationCode,
-      });
-
       const response = await axios.post(
         "https://seal-app-doaaw.ondigitalocean.app/api/auth/verify-registration",
         {
@@ -103,15 +128,24 @@ const RegisterScreen = ({ navigation }) => {
         }
       );
 
-      console.log("Verification response:", response.data);
-
       if (response.data) {
+        if (response.data.token) {
+          await AsyncStorage.setItem("token", response.data.token);
+        }
+        if (response.data.user) {
+          await AsyncStorage.setItem(
+            "user",
+            JSON.stringify(response.data.user)
+          );
+          saveUser(response.data.user);
+        }
+
         Alert.alert("Success", "Email verified successfully!", [
           {
             text: "OK",
             onPress: () => {
               setVerificationModalVisible(false);
-              navigation.navigate("Login");
+              navigation.navigate("DailyTasks");
             },
           },
         ]);
@@ -119,15 +153,12 @@ const RegisterScreen = ({ navigation }) => {
         Alert.alert("Error", "Verification failed. Please try again.");
       }
     } catch (error) {
-      console.log("Verification error:", error.response?.data || error.message);
-
       let errorMessage = "Failed to verify email. Please try again.";
       if (error.response?.data?.message) {
         errorMessage = error.response.data.message;
       } else if (error.response?.data?.error) {
         errorMessage = error.response.data.error;
       }
-
       Alert.alert("Verification Failed", errorMessage);
     } finally {
       setVerificationLoading(false);
@@ -139,12 +170,6 @@ const RegisterScreen = ({ navigation }) => {
     const trimmedEmail = email.trim();
     const trimmedPassword = password.trim();
     const trimmedPhoneNumber = phoneNumber.trim();
-
-    // Debug logs
-    console.log("Name:", trimmedName);
-    console.log("Email:", trimmedEmail);
-    console.log("Password:", trimmedPassword);
-    console.log("Phone Number:", trimmedPhoneNumber);
 
     // Validation
     if (!trimmedName) {
@@ -164,9 +189,8 @@ const RegisterScreen = ({ navigation }) => {
       return;
     }
 
-    // Email and phone validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; // Simple email regex
-    const phoneRegex = /^[0-9]{8,15}$/; // Digits only, 8-15 characters
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const phoneRegex = /^[0-9]{8,15}$/;
 
     if (!emailRegex.test(trimmedEmail)) {
       alert("Please enter a valid email address.");
@@ -179,12 +203,6 @@ const RegisterScreen = ({ navigation }) => {
 
     try {
       setLoading(true);
-      console.log("Sending registration request with:", {
-        name: trimmedName,
-        email: trimmedEmail,
-        phone_number: trimmedPhoneNumber,
-      });
-
       const response = await axios.post(
         "https://seal-app-doaaw.ondigitalocean.app/api/auth/register",
         {
@@ -195,14 +213,11 @@ const RegisterScreen = ({ navigation }) => {
         }
       );
 
-      console.log("Registration response:", response.data);
-
       if (response.data) {
         setRegisteredEmail(trimmedEmail);
         setVerificationModalVisible(true);
       }
     } catch (error) {
-      console.log("Registration error:", error.response?.data || error.message);
       Alert.alert(
         "Registration Failed",
         error.response?.data?.message ||
@@ -224,7 +239,14 @@ const RegisterScreen = ({ navigation }) => {
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <Ionicons name="arrow-back" size={24} color="#333" />
+          <LinearGradient
+            colors={["#4A90E2", "#357ABD"]}
+            style={styles.backButtonGradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          >
+            <Ionicons name="arrow-back" size={24} color="white" />
+          </LinearGradient>
         </TouchableOpacity>
 
         <KeyboardAvoidingView
@@ -252,7 +274,7 @@ const RegisterScreen = ({ navigation }) => {
               />
               <Text style={styles.welcomeText}>Create Account</Text>
               <Text style={styles.subtitle}>
-                Please fill in the form to continue
+                Join our community of caregivers today
               </Text>
             </Animated.View>
 
@@ -266,73 +288,33 @@ const RegisterScreen = ({ navigation }) => {
               ]}
             >
               <View style={styles.inputContainer}>
-                <View style={styles.inputWrapper}>
-                  <Ionicons
-                    name="person-outline"
-                    size={20}
-                    color="#4A90E2"
-                    style={styles.inputIcon}
-                  />
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Full Name"
-                    value={name}
-                    placeholderTextColor="#666"
-                    onChangeText={setName}
-                  />
-                </View>
-
-                <View style={styles.inputWrapper}>
-                  <Ionicons
-                    name="mail-outline"
-                    size={20}
-                    color="#4A90E2"
-                    style={styles.inputIcon}
-                  />
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Email Address"
-                    value={email}
-                    placeholderTextColor="#666"
-                    onChangeText={setEmail}
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                  />
-                </View>
-
-                <View style={styles.inputWrapper}>
-                  <Ionicons
-                    name="lock-closed-outline"
-                    size={20}
-                    color="#4A90E2"
-                    style={styles.inputIcon}
-                  />
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Password"
-                    value={password}
-                    placeholderTextColor="#666"
-                    onChangeText={setPassword}
-                    secureTextEntry
-                  />
-                </View>
-
-                <View style={styles.inputWrapper}>
-                  <Ionicons
-                    name="call-outline"
-                    size={20}
-                    color="#4A90E2"
-                    style={styles.inputIcon}
-                  />
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Phone Number"
-                    value={phoneNumber}
-                    placeholderTextColor="#666"
-                    onChangeText={setPhoneNumber}
-                    keyboardType="phone-pad"
-                  />
-                </View>
+                <InputField
+                  icon="person-outline"
+                  placeholder="Full Name"
+                  value={name}
+                  onChangeText={setName}
+                />
+                <InputField
+                  icon="mail-outline"
+                  placeholder="Email Address"
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                />
+                <InputField
+                  icon="lock-closed-outline"
+                  placeholder="Password"
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry
+                />
+                <InputField
+                  icon="call-outline"
+                  placeholder="Phone Number"
+                  value={phoneNumber}
+                  onChangeText={setPhoneNumber}
+                  keyboardType="phone-pad"
+                />
               </View>
 
               <TouchableOpacity
@@ -359,7 +341,7 @@ const RegisterScreen = ({ navigation }) => {
 
               <TouchableOpacity
                 style={styles.loginLink}
-                onPress={() => navigation.navigate("Login")}
+                onPress={() => navigation.navigate("DailyTasks")}
               >
                 <Text style={styles.loginText}>
                   Already have an account?{" "}
@@ -429,7 +411,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   backButton: {
-    padding: 16,
+    margin: 16,
+    alignSelf: "flex-start",
+    borderRadius: 20,
+    overflow: "hidden",
+  },
+  backButtonGradient: {
+    padding: 8,
   },
   scrollView: {
     flex: 1,
@@ -444,10 +432,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   logo: {
-    width: width * 0.4,
-    height: width * 0.4,
-    maxWidth: 180,
-    maxHeight: 180,
+    width: width * 0.35,
+    height: width * 0.35,
+    maxWidth: 150,
+    maxHeight: 150,
     marginBottom: 24,
   },
   welcomeText: {
@@ -477,14 +465,18 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: "#E1E1E1",
-    paddingHorizontal: 16,
-    height: 56,
+    overflow: "hidden",
   },
-  inputIcon: {
-    marginRight: 12,
+  iconContainer: {
+    width: 48,
+    height: 48,
+    justifyContent: "center",
+    alignItems: "center",
   },
   input: {
     flex: 1,
+    height: 48,
+    paddingHorizontal: 16,
     fontSize: 16,
     color: "#333",
   },
