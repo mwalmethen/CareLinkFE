@@ -23,6 +23,7 @@ import MedicalHistoryScreen from "./src/screens/MedicalHistoryScreen";
 import HealthScreen from "./src/screens/HealthScreen";
 import MedicationForm from "./src/screens/Medication";
 import LovedOnesListScreen from "./src/screens/LovedOnesListScreen";
+import CarePlanDetailsScreen from "./src/screens/CarePlanDetailsScreen";
 import { gestureHandlerRootHOC } from "react-native-gesture-handler";
 
 const Stack = createStackNavigator();
@@ -120,6 +121,10 @@ export default function App() {
               <Stack.Screen
                 name="LovedOnesList"
                 component={LovedOnesListScreen}
+              />
+              <Stack.Screen
+                name="CarePlanDetails"
+                component={CarePlanDetailsScreen}
               />
             </Stack.Navigator>
           </NavigationContainer>
