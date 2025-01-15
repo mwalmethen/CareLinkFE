@@ -37,7 +37,11 @@ import {
   getProfileImage,
 } from "../api/storage";
 import NotificationsModal from "../components/NotificationsModal";
-import { getInvitations, acceptInvitation } from "../api/Invite";
+import {
+  getInvitations,
+  acceptInvitation,
+  rejectInvitation,
+} from "../api/Invite";
 import { useFocusEffect } from "@react-navigation/native";
 
 const { width } = Dimensions.get("window");
@@ -435,381 +439,67 @@ const AddLovedOneModal = memo(({ visible, onClose, onAdd, loading }) => {
 });
 
 const ProfileScreen = ({ navigation }) => {
-  const [modalVisible, setModalVisible] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const { user, token, logout, updateUser } = useUser();
+  const { user, logout } = useUser();
   const [profileImage, setProfileImage] = useState(null);
-  const queryClient = useQueryClient();
-  const [notificationsVisible, setNotificationsVisible] = useState(false);
-  const [isLoadingInvitations, setIsLoadingInvitations] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [invitations, setInvitations] = useState([]);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [notificationCount, setNotificationCount] = useState(0);
+  const queryClient = useQueryClient();
 
-  // Add this useEffect to debug user context
-  useEffect(() => {
-    console.log("User Context:", user);
-  }, [user]);
-
-  // Load profile image when component mounts and when user changes
-  useEffect(() => {
-    const loadProfileImage = async () => {
-      try {
-        console.log("Loading profile image...");
-        console.log("Current user data:", user);
-
-        // First try to get the image from storage
-        const savedImageUrl = await getProfileImage();
-        console.log("Saved image URL from storage:", savedImageUrl);
-
-        if (savedImageUrl) {
-          console.log("Setting profile image from storage:", savedImageUrl);
-          setProfileImage(savedImageUrl);
-
-          // Update user context if needed
-          if (
-            user &&
-            (!user.profileImage || user.profileImage !== savedImageUrl)
-          ) {
-            console.log("Updating user context with saved image");
-            const updatedUser = {
-              ...user,
-              profileImage: savedImageUrl,
-            };
-            await AsyncStorage.setItem("user", JSON.stringify(updatedUser));
-            await updateUser(updatedUser);
-          }
-          return;
-        }
-
-        // If not in storage, try user context
-        if (user?.profileImage) {
-          const imageUrl = user.profileImage.startsWith("http")
-            ? user.profileImage
-            : `http://seal-app-doaaw.ondigitalocean.app/${user.profileImage}`;
-          console.log("Setting profile image from user context:", imageUrl);
-          setProfileImage(imageUrl);
-
-          // Save to storage for future use
-          await setProfileImage(imageUrl);
-        }
-      } catch (error) {
-        console.error("Error loading profile image:", error);
-      }
-    };
-
-    loadProfileImage();
-  }, [user, updateUser]);
-
-  const { data, isLoading, error } = useQuery({
-    queryKey: ["lovedOnes"],
-    queryFn: getAllLovedOnes,
-    refetchOnMount: true,
-  });
-
-  // Add this effect to refetch loved ones data when focusing the screen
-  useFocusEffect(
-    useCallback(() => {
-      queryClient.invalidateQueries(["lovedOnes"]);
-    }, [queryClient])
-  );
-
-  // Optimized animation values using useRef
-  const animations = useRef({
-    fade: new Animated.Value(0),
-    slide: new Animated.Value(50),
-    scale: new Animated.Value(0.3),
-    lovedOnes: new Animated.Value(0),
-  }).current;
-
-  // Memoized handlers
-  const handleImagePick = useCallback(async () => {
+  // Keep the fetchInvitations function
+  const fetchInvitations = async () => {
     try {
-      const permissionResult =
-        await ImagePicker.requestMediaLibraryPermissionsAsync();
+      setIsLoading(true);
+      const response = await getInvitations();
+      console.log("Invitations response:", response);
 
-      if (!permissionResult.granted) {
-        Alert.alert(
-          "Permission Required",
-          "Please allow access to your photo library to change your profile picture."
-        );
-        return;
-      }
+      // Check if response is an array or has an invitations property
+      const invitationsData = Array.isArray(response)
+        ? response
+        : response.invitations || [];
+      console.log("Processed invitations data:", invitationsData);
 
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.5,
-      });
-
-      if (!result.canceled && result.assets[0].uri) {
-        setLoading(true);
-        try {
-          const response = await uploadProfileImage(
-            result.assets[0].uri,
-            token
-          );
-          console.log("Upload response:", response);
-
-          if (response?.caregiver?.profileImage) {
-            // Format the image URL
-            const imageUrl = response.caregiver.profileImage.startsWith("http")
-              ? response.caregiver.profileImage
-              : `https://seal-app-doaaw.ondigitalocean.app/${response.caregiver.profileImage}`;
-
-            // Save the image URL to storage
-            await setProfileImage(imageUrl);
-
-            // Update the user context with the new image
-            updateUser({
-              ...user,
-              profileImage: imageUrl,
-            });
-
-            // Invalidate queries to refresh the UI
-            queryClient.invalidateQueries(["user"]);
-
-            Alert.alert("Success", "Profile picture updated successfully!");
-          } else {
-            throw new Error("Invalid response format from server");
-          }
-        } catch (error) {
-          console.error("Error uploading image:", error);
-          Alert.alert(
-            "Error",
-            "Failed to upload profile picture. Please try again."
-          );
-        }
-        setLoading(false);
-      }
+      setInvitations(invitationsData);
+      setNotificationCount(invitationsData.length);
+      setIsLoading(false);
     } catch (error) {
-      console.error("Error picking image:", error);
-      Alert.alert("Error", "Failed to pick image. Please try again.");
-      setLoading(false);
-    }
-  }, [token, user, updateUser, queryClient]);
-
-  const handleAddLovedOne = useCallback(
-    async (formData) => {
-      if (!formData.name || !formData.age || !formData.medical_history) {
-        Alert.alert("Error", "All fields are required.");
-        return;
-      }
-
-      try {
-        setLoading(true);
-        await addLovedOne(formData, token);
-        queryClient.invalidateQueries(["lovedOnes"]);
-        Alert.alert("Success", "Loved one added successfully!");
-        setModalVisible(false);
-      } catch (error) {
-        Alert.alert(
-          "Error",
-          error.response?.data?.message || "Failed to add loved one."
-        );
-      } finally {
-        setLoading(false);
-      }
-    },
-    [token, queryClient]
-  );
-
-  const handleDeleteLovedOne = async (lovedOneId) => {
-    try {
-      const lovedOne = data.find((item) => item._id === lovedOneId);
-      if (!lovedOne) return;
-
-      // Check if there is only one caregiver
-      if (lovedOne.caregivers?.length !== 1) {
-        Alert.alert(
-          "Permission Denied",
-          "You can only delete a loved one when there is exactly one caregiver.",
-          [{ text: "OK", style: "default" }]
-        );
-        return;
-      }
-
-      Alert.alert(
-        "Delete Loved One",
-        "Are you sure you want to delete this loved one?",
-        [
-          {
-            text: "Cancel",
-            style: "cancel",
-          },
-          {
-            text: "Delete",
-            style: "destructive",
-            onPress: async () => {
-              try {
-                await deleteLovedOne(lovedOneId, token);
-                queryClient.invalidateQueries(["lovedOnes"]);
-                Alert.alert("Success", "Loved one deleted successfully");
-              } catch (error) {
-                console.error("Error deleting loved one:", error);
-                Alert.alert(
-                  "Error",
-                  "Failed to delete loved one. Please try again."
-                );
-              }
-            },
-          },
-        ]
-      );
-    } catch (error) {
-      console.error("Error in handleDeleteLovedOne:", error);
-      Alert.alert("Error", "An unexpected error occurred. Please try again.");
+      console.error("Error fetching invitations:", error);
+      setIsLoading(false);
     }
   };
 
-  const handleLovedOneImagePick = useCallback(
-    async (lovedOneId) => {
-      try {
-        const { status } =
-          await ImagePicker.requestMediaLibraryPermissionsAsync();
-        if (status !== "granted") {
-          Alert.alert(
-            "Permission needed",
-            "Please grant permission to access your photos."
-          );
-          return;
-        }
+  // Add debug logging to useEffect
+  useEffect(() => {
+    console.log("Fetching invitations on mount");
+    fetchInvitations();
+  }, []);
 
-        const result = await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: ImagePicker.MediaTypeOptions.Images,
-          allowsEditing: true,
-          aspect: [1, 1],
-          quality: 0.8,
-        });
-
-        if (!result.canceled) {
-          const loadingLovedOneId = lovedOneId;
-          setLoadingLovedOneId(loadingLovedOneId);
-
-          try {
-            const response = await uploadLovedOneProfileImage(
-              lovedOneId,
-              result.assets[0].uri,
-              token
-            );
-            console.log("Loved one image response:", response);
-
-            if (response.lovedOne && response.lovedOne.profileImage) {
-              const storageKey = `lovedOne_${lovedOneId}_image`;
-              await AsyncStorage.setItem(
-                storageKey,
-                response.lovedOne.profileImage
-              );
-
-              const imageUrl = response.lovedOne.profileImage.startsWith("http")
-                ? response.lovedOne.profileImage
-                : `http://seal-app-doaaw.ondigitalocean.app/${response.lovedOne.profileImage}`;
-
-              queryClient.setQueryData(["lovedOnes"], (oldData) => {
-                return oldData.map((lovedOne) => {
-                  if (lovedOne._id === lovedOneId) {
-                    return {
-                      ...lovedOne,
-                      profileImage: imageUrl,
-                    };
-                  }
-                  return lovedOne;
-                });
-              });
-
-              Alert.alert(
-                "Success",
-                "Loved one's photo has been updated successfully!"
-              );
-            }
-          } catch (error) {
-            console.error("Upload error:", error);
-            Alert.alert(
-              "Error",
-              error.response?.data?.message ||
-                "Failed to upload loved one's photo. Please try again."
-            );
-          } finally {
-            setLoadingLovedOneId(null);
-          }
-        }
-      } catch (error) {
-        Alert.alert("Error", "Failed to pick image. Please try again.");
-      }
-    },
-    [token, queryClient]
+  // Add debug logging to useFocusEffect
+  useFocusEffect(
+    useCallback(() => {
+      console.log("Fetching invitations on focus");
+      fetchInvitations();
+    }, [])
   );
 
-  // Load loved ones' images from AsyncStorage when data is fetched
-  useEffect(() => {
-    const loadLovedOnesImages = async () => {
-      if (data && data.length > 0) {
-        const updatedLovedOnes = await Promise.all(
-          data.map(async (lovedOne) => {
-            const storageKey = `lovedOne_${lovedOne._id}_image`;
-            const savedImagePath = await AsyncStorage.getItem(storageKey);
-
-            if (savedImagePath) {
-              const imageUrl = savedImagePath.startsWith("http")
-                ? savedImagePath
-                : `http://seal-app-doaaw.ondigitalocean.app/${savedImagePath}`;
-              return {
-                ...lovedOne,
-                profileImage: imageUrl,
-              };
-            }
-            return lovedOne;
-          })
-        );
-
-        // Update the cache with the loaded images
-        queryClient.setQueryData(["lovedOnes"], updatedLovedOnes);
+  const loadProfileImage = async () => {
+    try {
+      const savedImage = await getProfileImage();
+      if (savedImage) {
+        setProfileImage(savedImage);
       }
-    };
+    } catch (error) {
+      console.error("Error loading profile image:", error);
+    }
+  };
 
-    loadLovedOnesImages();
-  }, [data, queryClient]);
-
-  // Add state for loading specific loved one image
-  const [loadingLovedOneId, setLoadingLovedOneId] = useState(null);
-
-  // Initial animations with optimized configuration
   useEffect(() => {
-    const animConfig = {
-      duration: 600,
-      useNativeDriver: true,
-      tension: 40,
-      friction: 8,
-    };
-
-    Animated.parallel([
-      Animated.timing(animations.fade, {
-        toValue: 1,
-        duration: animConfig.duration,
-        useNativeDriver: true,
-      }),
-      Animated.spring(animations.scale, {
-        toValue: 1,
-        tension: animConfig.tension,
-        friction: animConfig.friction,
-        useNativeDriver: true,
-      }),
-      Animated.spring(animations.slide, {
-        toValue: 0,
-        tension: animConfig.tension,
-        friction: animConfig.friction,
-        useNativeDriver: true,
-      }),
-      Animated.timing(animations.lovedOnes, {
-        toValue: 1,
-        duration: animConfig.duration + 200,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [animations]);
+    loadProfileImage();
+  }, []);
 
   const handleLogout = async () => {
     try {
-      await clearUserData(); // Clear both token and profile image
       await logout();
       navigation.reset({
         index: 0,
@@ -821,23 +511,8 @@ const ProfileScreen = ({ navigation }) => {
     }
   };
 
-  // Load invitations when screen mounts
-  useEffect(() => {
-    fetchInvitations();
-  }, []);
-
-  const fetchInvitations = async () => {
-    try {
-      setIsLoadingInvitations(true);
-      const response = await getInvitations();
-      // Update to use the invitations array from the response
-      setInvitations(response.invitations || []);
-    } catch (error) {
-      console.error("Error fetching invitations:", error);
-      Alert.alert("Error", "Failed to fetch invitations");
-    } finally {
-      setIsLoadingInvitations(false);
-    }
+  const handleNotificationPress = () => {
+    setShowNotifications(true);
   };
 
   const handleApproveInvitation = async (invitationId) => {
@@ -845,11 +520,7 @@ const ProfileScreen = ({ navigation }) => {
       await acceptInvitation(invitationId);
       await fetchInvitations();
       queryClient.invalidateQueries(["lovedOnes"]);
-      Alert.alert(
-        "Success",
-        "Invitation accepted successfully! You can now manage tasks for this loved one.",
-        [{ text: "OK" }]
-      );
+      Alert.alert("Success", "Invitation accepted successfully!");
     } catch (error) {
       console.error("Error accepting invitation:", error);
       Alert.alert("Error", "Failed to accept invitation");
@@ -857,352 +528,91 @@ const ProfileScreen = ({ navigation }) => {
   };
 
   const handleRejectInvitation = async (invitationId) => {
-    // TODO: Implement reject invitation
-    Alert.alert("Coming Soon", "Reject invitation functionality coming soon!");
+    try {
+      await rejectInvitation(invitationId);
+      await fetchInvitations();
+      queryClient.invalidateQueries(["lovedOnes"]);
+      Alert.alert("Success", "Invitation rejected successfully!");
+    } catch (error) {
+      console.error("Error rejecting invitation:", error);
+      Alert.alert("Error", "Failed to reject invitation");
+    }
   };
-
-  const handleNotificationPress = () => {
-    setNotificationsVisible(true);
-    fetchInvitations();
-  };
-
-  // Refresh invitations when screen comes into focus
-  useFocusEffect(
-    useCallback(() => {
-      fetchInvitations();
-    }, [])
-  );
 
   return (
     <SafeAreaView style={styles.container}>
       <LinearGradient
-        colors={["#4A90E2", "#357ABD"]}
+        colors={["#3B82F6", "#2563EB"]}
         style={styles.header}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
       >
-        <Text style={styles.headerTitle}>Profile</Text>
-        <Pressable
-          style={({ pressed }) => [
-            styles.notificationButton,
-            pressed && styles.pressed,
-          ]}
-          onPress={handleNotificationPress}
-        >
-          <View style={styles.notificationIconContainer}>
-            <Ionicons name="notifications-outline" size={24} color="white" />
-            {invitations && invitations.length > 0 && (
+        <View style={styles.headerContent}>
+          <Text style={styles.headerTitle}>My Profile</Text>
+          <TouchableOpacity
+            style={styles.notificationButton}
+            onPress={handleNotificationPress}
+          >
+            <Ionicons name="mail-outline" size={24} color="white" />
+            {notificationCount > 0 && (
               <View style={styles.notificationBadge}>
-                <Text style={styles.notificationBadgeText}>
-                  {invitations.length}
+                <Text style={styles.notificationCount}>
+                  {notificationCount}
                 </Text>
               </View>
             )}
-          </View>
-        </Pressable>
+          </TouchableOpacity>
+        </View>
       </LinearGradient>
 
-      <ScrollView
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
-        <LinearGradient
-          colors={["#4A90E2", "#357ABD"]}
-          style={styles.profileGradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-        >
+      <ScrollView style={styles.content}>
+        <View style={styles.profileSection}>
           <View style={styles.profileImageContainer}>
-            {loading ? (
-              <ActivityIndicator size="large" color="#4A90E2" />
-            ) : user?.profileImage ? (
+            {profileImage ? (
               <Image
-                source={{ uri: user.profileImage }}
+                source={{ uri: profileImage }}
                 style={styles.profileImage}
-                resizeMode="cover"
               />
             ) : (
-              <View style={styles.profileImagePlaceholder}>
-                <Ionicons name="person-outline" size={40} color="#94A3B8" />
-              </View>
-            )}
-            <Pressable
-              onPress={handleImagePick}
-              style={styles.cameraIconContainer}
-            >
-              <Ionicons name="camera" size={16} color="white" />
-            </Pressable>
-          </View>
-          <Text style={styles.userName}>{user?.name || "User Name"}</Text>
-          <Text style={styles.userEmail}>
-            {user?.email || "email@example.com"}
-          </Text>
-
-          <View style={styles.userStatsContainer}>
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{data?.length || 0}</Text>
-              <Text style={styles.statLabel}>Loved Ones</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{invitations?.length || 0}</Text>
-              <Text style={styles.statLabel}>Notifications</Text>
-            </View>
-          </View>
-        </LinearGradient>
-
-        <View style={styles.mainContent}>
-          <Animated.View
-            style={[
-              styles.section,
-              {
-                opacity: animations.fade,
-                transform: [{ translateY: animations.slide }],
-              },
-            ]}
-          >
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Loved Ones</Text>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.addButton,
-                  pressed && styles.pressed,
-                ]}
-                onPress={() => setModalVisible(true)}
-              >
-                <LinearGradient
-                  colors={["#4A90E2", "#357ABD"]}
-                  style={styles.addButtonGradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                >
-                  <Ionicons name="add" size={24} color="white" />
-                </LinearGradient>
-              </Pressable>
-            </View>
-
-            {isLoading && <ActivityIndicator size="large" color="#4A90E2" />}
-            {error && (
-              <Text style={styles.errorText}>Failed to load loved ones.</Text>
-            )}
-            {!isLoading && !error && data?.length > 0
-              ? data.map((lovedOne) => {
-                  console.log("Loved One:", lovedOne.name);
-                  console.log("First Caregiver ID:", lovedOne.caregivers?.[0]);
-                  console.log("Current User ID:", user?._id);
-
-                  // Only show shared badge if we have both user ID and caregivers
-                  const isShared =
-                    user?._id &&
-                    lovedOne.caregivers?.length > 0 &&
-                    lovedOne.caregivers[0] !== user._id;
-
-                  console.log("Is Shared:", isShared);
-
-                  return (
-                    <View key={lovedOne._id} style={styles.lovedOneItem}>
-                      <Pressable
-                        style={({ pressed }) => [
-                          styles.lovedOneContent,
-                          pressed && styles.pressed,
-                        ]}
-                        onPress={() =>
-                          navigation.navigate("LovedOneDetails", { lovedOne })
-                        }
-                      >
-                        <View style={styles.lovedOneGradient}>
-                          <View style={styles.lovedOneHeader}>
-                            <View style={styles.lovedOneIconContainer}>
-                              <View style={styles.iconContainer}>
-                                {lovedOne.profileImage ? (
-                                  <Image
-                                    source={{ uri: lovedOne.profileImage }}
-                                    style={styles.lovedOneProfileImageStyle}
-                                    resizeMode="cover"
-                                  />
-                                ) : (
-                                  <Ionicons
-                                    name="person"
-                                    size={24}
-                                    color="#4A90E2"
-                                  />
-                                )}
-                              </View>
-                            </View>
-                            <View style={styles.lovedOneInfo}>
-                              <View style={styles.nameContainer}>
-                                <Text style={styles.lovedOneName}>
-                                  {lovedOne.name}
-                                </Text>
-                                {lovedOne.caregivers?.length >= 2 && (
-                                  <View style={styles.multiCaregiversBadge}>
-                                    <Ionicons
-                                      name="people"
-                                      size={14}
-                                      color="#4A90E2"
-                                    />
-                                  </View>
-                                )}
-                              </View>
-                              <View style={styles.ageContainer}>
-                                <Ionicons
-                                  name="calendar-outline"
-                                  size={14}
-                                  color="#666"
-                                />
-                                <Text style={styles.lovedOneAge}>
-                                  {lovedOne.age} years old
-                                </Text>
-                              </View>
-                              {isShared && (
-                                <View style={styles.sharedBadge}>
-                                  <Ionicons
-                                    name="people-outline"
-                                    size={12}
-                                    color="#FFFFFF"
-                                  />
-                                  <Text style={styles.sharedBadgeText}>
-                                    Shared with you
-                                  </Text>
-                                </View>
-                              )}
-                            </View>
-                            {!isShared && (
-                              <Pressable
-                                style={({ pressed }) => [
-                                  styles.deleteButton,
-                                  pressed && styles.deletePressed,
-                                ]}
-                                onPress={() =>
-                                  handleDeleteLovedOne(lovedOne._id)
-                                }
-                              >
-                                <View style={styles.deleteButtonInner}>
-                                  <Ionicons
-                                    name="trash-outline"
-                                    size={20}
-                                    color="#EA4335"
-                                  />
-                                </View>
-                              </Pressable>
-                            )}
-                          </View>
-
-                          {lovedOne.medical_history && (
-                            <View style={styles.medicalHistoryContainer}>
-                              <View style={styles.medicalHistoryHeader}>
-                                <Ionicons
-                                  name="medical-outline"
-                                  size={16}
-                                  color="#4A90E2"
-                                />
-                                <Text style={styles.medicalHistoryLabel}>
-                                  Medical History
-                                </Text>
-                              </View>
-                              <Text style={styles.medicalHistoryText}>
-                                {lovedOne.medical_history}
-                              </Text>
-                            </View>
-                          )}
-
-                          <View style={styles.cardFooter}>
-                            <View style={styles.footerInfo}>
-                              <View style={styles.taskCount}>
-                                <Ionicons
-                                  name="list-outline"
-                                  size={24}
-                                  color="#4A90E2"
-                                />
-                                <Text style={styles.taskCountText}>
-                                  {lovedOne.tasks?.total || 0} Tasks
-                                </Text>
-                              </View>
-                              <View style={styles.caregiverCount}>
-                                <Ionicons
-                                  name="people-outline"
-                                  size={14}
-                                  color="#FBBC05"
-                                />
-                                <Text style={styles.caregiverCountText}>
-                                  {lovedOne.caregivers?.length || 0} Caregivers
-                                </Text>
-                              </View>
-                            </View>
-                            <View style={styles.viewDetailsButton}>
-                              <Text style={styles.viewDetailsText}>
-                                View Details
-                              </Text>
-                              <Ionicons
-                                name="chevron-forward"
-                                size={16}
-                                color="#4A90E2"
-                              />
-                            </View>
-                          </View>
-                        </View>
-                      </Pressable>
-                    </View>
-                  );
-                })
-              : !isLoading && (
-                  <Text style={styles.noDataText}>
-                    No loved ones added yet.
-                  </Text>
-                )}
-          </Animated.View>
-
-          <Animated.View
-            style={[
-              styles.section,
-              {
-                opacity: animations.fade,
-                transform: [{ translateY: animations.slide }],
-              },
-            ]}
-          >
-            <Text style={styles.sectionTitle}>Account Settings</Text>
-            <MenuButton
-              icon="key-outline"
-              text="Change Password"
-              onPress={() => navigation.navigate("EditProfile")}
-            />
-            <Pressable
-              style={({ pressed }) => [
-                styles.logoutButton,
-                pressed && styles.pressed,
-              ]}
-              onPress={handleLogout}
-            >
               <LinearGradient
-                colors={["#EA4335", "#D32F2F"]}
-                style={styles.logoutGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
+                colors={["#4A90E2", "#357ABD"]}
+                style={styles.profileImagePlaceholder}
               >
-                <Ionicons name="log-out-outline" size={24} color="white" />
-                <Text style={styles.logoutText}>Logout</Text>
+                <Ionicons name="person" size={48} color="white" />
               </LinearGradient>
-            </Pressable>
-          </Animated.View>
+            )}
+          </View>
+          <Text style={styles.userName}>{user?.name}</Text>
+          <Text style={styles.userEmail}>{user?.email}</Text>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Account Settings</Text>
+          <MenuButton
+            icon="people-outline"
+            text="My Roles"
+            onPress={() => navigation.navigate("MyRoles")}
+          />
+          <MenuButton
+            icon="lock-closed-outline"
+            text="Change Password"
+            onPress={() => navigation.navigate("EditProfile")}
+          />
+          <MenuButton
+            icon="log-out-outline"
+            text="Logout"
+            onPress={handleLogout}
+          />
         </View>
       </ScrollView>
 
       <NotificationsModal
-        visible={notificationsVisible}
-        onClose={() => setNotificationsVisible(false)}
+        visible={showNotifications}
+        onClose={() => setShowNotifications(false)}
         invitations={invitations}
-        isLoading={isLoadingInvitations}
+        isLoading={isLoading}
         onApprove={handleApproveInvitation}
         onReject={handleRejectInvitation}
-      />
-
-      <AddLovedOneModal
-        visible={modalVisible}
-        onClose={() => setModalVisible(false)}
-        onAdd={handleAddLovedOne}
-        loading={loading}
       />
     </SafeAreaView>
   );
@@ -1213,37 +623,28 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#F5F7FA",
   },
-  scrollView: {
-    flex: 1,
-  },
   header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 20,
     paddingVertical: 16,
-    borderBottomColor: "rgba(255, 255, 255, 0.1)",
-    borderBottomWidth: 1,
+    paddingHorizontal: 20,
+  },
+  headerContent: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   headerTitle: {
-    fontSize: 28,
-    fontWeight: "800",
+    fontSize: 24,
+    fontWeight: "700",
     color: "white",
-    letterSpacing: 0.5,
   },
   notificationButton: {
     padding: 8,
     borderRadius: 20,
-    backgroundColor: "rgba(255, 255, 255, 0.15)",
-  },
-  notificationIconContainer: {
-    position: "relative",
-    padding: 4,
   },
   notificationBadge: {
     position: "absolute",
-    top: -5,
-    right: -5,
+    top: 0,
+    right: 0,
     backgroundColor: "#EA4335",
     borderRadius: 10,
     minWidth: 20,
@@ -1253,585 +654,77 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: "white",
   },
-  notificationBadgeText: {
+  notificationCount: {
     color: "white",
-    fontSize: 11,
-    fontWeight: "800",
+    fontSize: 12,
+    fontWeight: "600",
   },
-  headerGradient: {
-    padding: 20,
+  content: {
+    flex: 1,
+  },
+  profileSection: {
     alignItems: "center",
+    padding: 20,
+    backgroundColor: "white",
+    borderBottomWidth: 1,
+    borderBottomColor: "#E5E7EB",
   },
   profileImageContainer: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: "#F5F7FA",
-    justifyContent: "center",
-    alignItems: "center",
+    width: 120,
+    height: 120,
+    borderRadius: 60,
     marginBottom: 16,
     overflow: "hidden",
-    borderWidth: 3,
-    borderColor: "white",
   },
   profileImage: {
     width: "100%",
     height: "100%",
-    borderRadius: 50,
   },
   profileImagePlaceholder: {
     width: "100%",
     height: "100%",
-    borderRadius: 50,
-    backgroundColor: "#F5F7FA",
     justifyContent: "center",
     alignItems: "center",
-  },
-  cameraIconContainer: {
-    position: "absolute",
-    bottom: 0,
-    right: 0,
-    backgroundColor: "#4A90E2",
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 2,
-    borderColor: "white",
-  },
-  editButton: {
-    position: "absolute",
-    bottom: 0,
-    right: 0,
-    backgroundColor: "#4A90E2",
-    borderRadius: 20,
-    padding: 8,
-    borderWidth: 3,
-    borderColor: "white",
-  },
-  editButtonInner: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "rgba(74,144,226,0.9)",
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 1.5,
-    borderColor: "white",
   },
   userName: {
     fontSize: 24,
-    fontWeight: "700",
-    color: "white",
-    marginTop: 12,
+    fontWeight: "600",
+    color: "#111827",
+    marginBottom: 4,
   },
   userEmail: {
     fontSize: 16,
-    color: "rgba(255,255,255,0.9)",
-    marginTop: 4,
-  },
-  userStatsContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 20,
-    paddingHorizontal: 20,
-    width: "100%",
-  },
-  statItem: {
-    alignItems: "center",
-    flex: 1,
-  },
-  statNumber: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: "white",
-  },
-  statLabel: {
-    fontSize: 14,
-    color: "rgba(255,255,255,0.9)",
-    marginTop: 4,
-  },
-  statDivider: {
-    width: 1,
-    height: 40,
-    backgroundColor: "rgba(255,255,255,0.2)",
-    marginHorizontal: 30,
-  },
-  mainContent: {
-    flex: 1,
-    paddingTop: 20,
+    color: "#6B7280",
   },
   section: {
     backgroundColor: "white",
-    borderRadius: 20,
-    padding: 20,
-    marginHorizontal: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 5,
-  },
-  sectionHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 20,
+    marginTop: 20,
+    paddingVertical: 8,
   },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: "#333",
-    marginBottom: 16,
-    letterSpacing: 0.5,
-  },
-  addButton: {
-    borderRadius: 12,
-    overflow: "hidden",
-  },
-  addButtonGradient: {
-    padding: 12,
-    borderRadius: 12,
-  },
-  lovedOneItem: {
-    marginBottom: 15,
-    backgroundColor: "white",
-    borderRadius: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  lovedOneContent: {
-    borderRadius: 16,
-    overflow: "hidden",
-  },
-  lovedOneGradient: {
-    padding: 16,
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#E8E8E8",
-    borderRadius: 12,
-  },
-  lovedOneHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  lovedOneIconContainer: {
-    marginRight: 12,
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    overflow: "hidden",
-    backgroundColor: "#f8f9fa",
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 2,
-    borderColor: "#E1E1E1",
-    position: "relative",
-  },
-  iconContainer: {
-    width: "100%",
-    height: "100%",
-    justifyContent: "center",
-    alignItems: "center",
-    position: "relative",
-  },
-  lovedOneProfileImageStyle: {
-    width: "100%",
-    height: "100%",
-    borderRadius: 25,
-  },
-  lovedOneInfo: {
-    flex: 1,
-    marginLeft: 4,
-  },
-  lovedOneName: {
     fontSize: 18,
-    fontWeight: "700",
-    color: "#333",
-    marginBottom: 4,
-  },
-  ageContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  lovedOneAge: {
-    fontSize: 14,
-    color: "#666",
-    fontWeight: "500",
-  },
-  deleteButton: {
-    marginLeft: 8,
-  },
-  deleteButtonInner: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "rgba(234, 67, 53, 0.1)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  deletePressed: {
-    opacity: 0.7,
-    transform: [{ scale: 0.95 }],
-  },
-  medicalHistoryContainer: {
-    backgroundColor: "#FFFFFF",
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: "#E8E8E8",
-  },
-  medicalHistoryHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 8,
-    gap: 6,
-  },
-  medicalHistoryLabel: {
-    fontSize: 14,
     fontWeight: "600",
-    color: "#4A90E2",
-  },
-  medicalHistoryText: {
-    fontSize: 14,
-    color: "#666",
-    lineHeight: 20,
-  },
-  cardFooter: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: "#f0f0f0",
-  },
-  footerInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  taskCount: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  taskCountText: {
-    fontSize: 12,
-    color: "#34A853",
-    fontWeight: "600",
-  },
-  caregiverCount: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  caregiverCountText: {
-    fontSize: 12,
-    color: "#FBBC05",
-    fontWeight: "600",
-  },
-  viewDetailsButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    backgroundColor: "#4A90E215",
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 20,
-  },
-  viewDetailsText: {
-    fontSize: 14,
-    color: "#4A90E2",
-    fontWeight: "600",
+    color: "#111827",
+    paddingHorizontal: 20,
+    paddingVertical: 12,
   },
   menuItem: {
-    marginBottom: 12,
-    borderRadius: 16,
-    overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    paddingHorizontal: 20,
   },
   menuItemGradient: {
     flexDirection: "row",
     alignItems: "center",
     padding: 16,
-    paddingHorizontal: 20,
+    borderRadius: 12,
   },
   menuText: {
     flex: 1,
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#333",
     marginLeft: 12,
-  },
-  logoutButton: {
-    marginTop: 8,
-    borderRadius: 16,
-    overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  logoutGradient: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 16,
-    gap: 8,
-  },
-  logoutText: {
-    color: "white",
     fontSize: 16,
-    fontWeight: "600",
-  },
-  errorText: {
-    color: "#EA4335",
-    textAlign: "center",
-    marginVertical: 20,
-  },
-  noDataText: {
-    color: "#666",
-    textAlign: "center",
-    marginVertical: 20,
-  },
-  modalContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "rgba(0,0,0,0.5)",
-  },
-  modalContent: {
-    backgroundColor: "white",
-    borderRadius: 20,
-    width: "90%",
-    maxWidth: 400,
-    maxHeight: "80%",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  modalHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
-  },
-  modalTitle: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: "#333",
-  },
-  closeButton: {
-    padding: 8,
-    borderRadius: 20,
-  },
-  modalForm: {
-    padding: 20,
-  },
-  modalFormContent: {
-    paddingBottom: 20,
-  },
-  inputContainer: {
-    marginBottom: 20,
-  },
-  inputContainerActive: {
-    transform: [{ scale: 1.02 }],
-  },
-  inputLabel: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#4A90E2",
-    marginBottom: 8,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: "#E1E1E1",
-    borderRadius: 12,
-    padding: 12,
-    fontSize: 16,
-    color: "#333",
-    backgroundColor: "#f8f9fa",
-  },
-  multilineInput: {
-    height: 100,
-    textAlignVertical: "top",
-  },
-  modalFooter: {
-    flexDirection: "row",
-    padding: 20,
-    gap: 12,
-    borderTopWidth: 1,
-    borderTopColor: "#f0f0f0",
-  },
-  modalButton: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 16,
-    borderRadius: 12,
-    gap: 8,
-  },
-  addButtonModal: {
-    backgroundColor: "#4A90E2",
-  },
-  cancelButton: {
-    backgroundColor: "#EA4335",
-  },
-  buttonText: {
-    color: "white",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  scrollContent: {
-    flexGrow: 1,
+    color: "#374151",
   },
   pressed: {
     opacity: 0.8,
-    transform: [{ scale: 0.98 }],
-  },
-  keyboardAvoidingView: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    width: "100%",
-  },
-  lovedOneProfileImage: {
-    width: "100%",
-    height: "100%",
-    borderRadius: 22,
-  },
-  cameraIconOverlay: {
-    position: "absolute",
-    bottom: -4,
-    right: -4,
-    backgroundColor: "#4A90E2",
-    borderRadius: 12,
-    width: 22,
-    height: 22,
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 2,
-    borderColor: "white",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 2,
-    zIndex: 1,
-  },
-  iconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#f8f9fa",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 4,
-    overflow: "hidden",
-  },
-  lovedOneProfileImageContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#f8f9fa",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 4,
-    overflow: "hidden",
-  },
-  lovedOneProfileImageStyle: {
-    width: "100%",
-    height: "100%",
-    borderRadius: 22,
-  },
-  profileGradient: {
-    alignItems: "center",
-    paddingVertical: 30,
-    paddingHorizontal: 20,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
-  },
-  sharedLovedOneGradient: {
-    backgroundColor: "#EBF8FF",
-    borderWidth: 2,
-    borderColor: "#4A90E2",
-    borderRadius: 12,
-    padding: 16,
-  },
-  sharedIconContainer: {
-    backgroundColor: "#FFFFFF",
-    borderColor: "#4A90E2",
-    borderWidth: 2,
-  },
-  sharedBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#4A90E2",
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 12,
-    marginTop: 8,
-    alignSelf: "flex-start",
-    gap: 6,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-    zIndex: 1,
-  },
-  sharedBadgeText: {
-    fontSize: 13,
-    color: "#FFFFFF",
-    fontWeight: "700",
-    letterSpacing: 0.3,
-  },
-  nameContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginBottom: 4,
-  },
-  creatorBadge: {
-    backgroundColor: "#FFF7E6",
-    padding: 4,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#FFD700",
-  },
-  multiCaregiversBadge: {
-    backgroundColor: "#E3F2FD",
-    padding: 4,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#4A90E2",
-    marginLeft: 8,
   },
 });
 

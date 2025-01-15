@@ -129,6 +129,7 @@ const RegisterScreen = ({ navigation }) => {
       );
 
       if (response.data) {
+        // Save token and user data
         if (response.data.token) {
           await AsyncStorage.setItem("token", response.data.token);
         }
@@ -137,7 +138,7 @@ const RegisterScreen = ({ navigation }) => {
             "user",
             JSON.stringify(response.data.user)
           );
-          saveUser(response.data.user);
+          await saveUser(response.data.user, response.data.token);
         }
 
         Alert.alert("Success", "Email verified successfully!", [
@@ -145,12 +146,15 @@ const RegisterScreen = ({ navigation }) => {
             text: "OK",
             onPress: () => {
               setVerificationModalVisible(false);
-              navigation.navigate("DailyTasks");
+              navigation.reset({
+                index: 0,
+                routes: [
+                  { name: "HomeTabs", params: { screen: "DailyTasks" } },
+                ],
+              });
             },
           },
         ]);
-      } else {
-        Alert.alert("Error", "Verification failed. Please try again.");
       }
     } catch (error) {
       let errorMessage = "Failed to verify email. Please try again.";
@@ -216,6 +220,10 @@ const RegisterScreen = ({ navigation }) => {
       if (response.data) {
         setRegisteredEmail(trimmedEmail);
         setVerificationModalVisible(true);
+        Alert.alert(
+          "Registration Successful",
+          "Please check your email for the verification code."
+        );
       }
     } catch (error) {
       Alert.alert(
