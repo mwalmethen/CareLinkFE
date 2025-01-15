@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import {
   Alert,
   TextInput,
   Modal,
+  RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -238,6 +239,7 @@ const LovedOneDetailsScreen = ({ route, navigation }) => {
   const [selectedCaregiver, setSelectedCaregiver] = useState(null);
   const [caregiverModalVisible, setCaregiverModalVisible] = useState(false);
   const queryClient = useQueryClient();
+  const [refreshing, setRefreshing] = useState(false);
 
   // Add query to fetch tasks for this loved one
   const {
@@ -511,6 +513,17 @@ const LovedOneDetailsScreen = ({ route, navigation }) => {
     }
   };
 
+  // Add onRefresh handler
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await queryClient.invalidateQueries(["caregivers", lovedOne._id]);
+      await queryClient.refetchQueries(["caregivers", lovedOne._id]);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [lovedOne._id]);
+
   return (
     <SafeAreaView style={styles.container}>
       <LinearGradient
@@ -545,7 +558,13 @@ const LovedOneDetailsScreen = ({ route, navigation }) => {
         </TouchableOpacity>
       </LinearGradient>
 
-      <ScrollView style={styles.content}>
+      <ScrollView
+        style={styles.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
         <Animated.View
           style={[
             styles.scrollContent,
