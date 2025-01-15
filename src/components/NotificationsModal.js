@@ -9,10 +9,11 @@ import {
   Dimensions,
   ActivityIndicator,
   TouchableOpacity,
+  FlatList,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { getEmergencyAlerts } from "../api";
+import { getEmergencyAlerts, getAllLovedOnes } from "../api";
 import EmergencyAlertModal from "./EmergencyAlertModal";
 
 const { height } = Dimensions.get("window");
@@ -24,26 +25,36 @@ const NotificationsModal = ({
   isLoading,
   onApprove,
   onReject,
+  lovedOneId,
 }) => {
   const [acceptingId, setAcceptingId] = useState(null);
   const [emergencyAlerts, setEmergencyAlerts] = useState([]);
   const [selectedAlert, setSelectedAlert] = useState(null);
   const [showAlertDetails, setShowAlertDetails] = useState(false);
+  const [loadingAlerts, setLoadingAlerts] = useState(false);
+
+  const fetchAllEmergencyAlerts = async () => {
+    try {
+      setLoadingAlerts(true);
+      if (lovedOneId) {
+        const alerts = await getEmergencyAlerts(lovedOneId);
+        setEmergencyAlerts(Array.isArray(alerts) ? alerts : []);
+      }
+    } catch (error) {
+      console.error("Error fetching emergency alerts:", error);
+      setEmergencyAlerts([]);
+    } finally {
+      setLoadingAlerts(false);
+    }
+  };
 
   useEffect(() => {
     if (visible) {
-      fetchEmergencyAlerts();
+      fetchAllEmergencyAlerts();
+      const interval = setInterval(fetchAllEmergencyAlerts, 30000);
+      return () => clearInterval(interval);
     }
   }, [visible]);
-
-  const fetchEmergencyAlerts = async () => {
-    try {
-      const alerts = await getEmergencyAlerts(lovedOneId);
-      setEmergencyAlerts(alerts);
-    } catch (error) {
-      console.error("Error fetching emergency alerts:", error);
-    }
-  };
 
   const handleViewAlert = (alert) => {
     setSelectedAlert(alert);
@@ -124,6 +135,41 @@ const NotificationsModal = ({
     </View>
   );
 
+  const renderAlert = (alert) => (
+    <View key={alert._id} style={styles.alertItem}>
+      <View style={styles.alertContent}>
+        <Text style={styles.alertType}>{alert.type.replace(/_/g, " ")}</Text>
+        <Text style={[styles.priorityBadge, getPriorityStyle(alert.priority)]}>
+          {alert.priority}
+        </Text>
+        <Text style={styles.alertDescription}>{alert.description}</Text>
+        <Text style={styles.alertLocation}>📍 {alert.location}</Text>
+        <Text style={styles.alertTime}>
+          {new Date(alert.createdAt).toLocaleString()}
+        </Text>
+      </View>
+      <TouchableOpacity
+        style={styles.viewButton}
+        onPress={() => handleViewAlert(alert)}
+      >
+        <Text style={styles.viewButtonText}>View</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  const getPriorityStyle = (priority) => {
+    switch (priority) {
+      case "URGENT":
+        return styles.priorityUrgent;
+      case "HIGH":
+        return styles.priorityHigh;
+      case "CRITICAL":
+        return styles.priorityCritical;
+      default:
+        return {};
+    }
+  };
+
   return (
     <Modal
       visible={visible}
@@ -151,51 +197,34 @@ const NotificationsModal = ({
             </Pressable>
           </LinearGradient>
 
-          <ScrollView
-            style={styles.notificationsList}
-            showsVerticalScrollIndicator={false}
-          >
-            {isLoading ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#4A90E2" />
-                <Text style={styles.loadingText}>Loading notifications...</Text>
-              </View>
-            ) : invitations.length > 0 ? (
-              invitations.map((invitation) => renderInvitation(invitation))
-            ) : (
-              <View style={styles.emptyContainer}>
-                <Ionicons name="mail-outline" size={48} color="#ccc" />
-                <Text style={styles.emptyText}>No notifications yet</Text>
-              </View>
-            )}
-
-            {emergencyAlerts.length > 0 && (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Emergency Alerts</Text>
-                {emergencyAlerts.map((alert) => (
-                  <View key={alert._id} style={styles.alertItem}>
-                    <View style={styles.alertContent}>
-                      <Text style={styles.alertType}>
-                        {alert.type.replace(/_/g, " ")}
-                      </Text>
-                      <Text style={styles.alertDescription}>
-                        {alert.description}
-                      </Text>
-                      <Text style={styles.alertTime}>
-                        {new Date(alert.createdAt).toLocaleString()}
-                      </Text>
-                    </View>
-                    <TouchableOpacity
-                      style={styles.viewButton}
-                      onPress={() => handleViewAlert(alert)}
-                    >
-                      <Text style={styles.viewButtonText}>View</Text>
-                    </TouchableOpacity>
-                  </View>
-                ))}
-              </View>
-            )}
-          </ScrollView>
+          <FlatList
+            data={[
+              ...invitations.map((item) => ({ ...item, type: "invitation" })),
+              ...emergencyAlerts.map((item) => ({ ...item, type: "alert" })),
+            ]}
+            keyExtractor={(item) => `${item.type}-${item._id}`}
+            renderItem={({ item }) =>
+              item.type === "invitation"
+                ? renderInvitation(item)
+                : renderAlert(item)
+            }
+            ListEmptyComponent={
+              isLoading || loadingAlerts ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="large" color="#4A90E2" />
+                  <Text style={styles.loadingText}>
+                    Loading notifications...
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.emptyContainer}>
+                  <Ionicons name="mail-outline" size={48} color="#ccc" />
+                  <Text style={styles.emptyText}>No notifications yet</Text>
+                </View>
+              )
+            }
+            contentContainerStyle={styles.notificationsList}
+          />
         </View>
       </View>
 
@@ -372,14 +401,15 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   alertItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 15,
-    backgroundColor: "#fff",
-    borderRadius: 10,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: "#E1E1E1",
+    backgroundColor: "white",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   alertContent: {
     flex: 1,
@@ -387,13 +417,37 @@ const styles = StyleSheet.create({
   alertType: {
     fontSize: 16,
     fontWeight: "bold",
-    color: "#EA4335",
-    marginBottom: 5,
+    color: "#333",
+    marginBottom: 4,
+  },
+  priorityBadge: {
+    alignSelf: "flex-start",
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginBottom: 8,
+  },
+  priorityUrgent: {
+    backgroundColor: "#EA4335",
+    color: "white",
+  },
+  priorityHigh: {
+    backgroundColor: "#FBBC05",
+    color: "white",
+  },
+  priorityCritical: {
+    backgroundColor: "#DB4437",
+    color: "white",
   },
   alertDescription: {
     fontSize: 14,
     color: "#666",
-    marginBottom: 5,
+    marginBottom: 8,
+  },
+  alertLocation: {
+    fontSize: 14,
+    color: "#4A90E2",
+    marginBottom: 4,
   },
   alertTime: {
     fontSize: 12,
@@ -401,13 +455,14 @@ const styles = StyleSheet.create({
   },
   viewButton: {
     backgroundColor: "#4A90E2",
-    paddingHorizontal: 15,
+    paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
+    alignSelf: "flex-end",
+    marginTop: 8,
   },
   viewButtonText: {
     color: "white",
-    fontSize: 14,
     fontWeight: "bold",
   },
 });
