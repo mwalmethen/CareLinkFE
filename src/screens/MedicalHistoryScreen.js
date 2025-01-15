@@ -195,7 +195,7 @@ const MedicalHistoryCard = ({ entry, handleEdit }) => {
   return (
     <View style={styles.card}>
       <LinearGradient
-        colors={["#4A90E2", "#357ABD"]}
+        colors={["#3B82F6", "#2563EB"]}
         style={styles.cardHeader}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
@@ -1184,7 +1184,7 @@ const MedicalHistoryScreen = ({ route, navigation }) => {
   return (
     <SafeAreaView style={styles.container}>
       <LinearGradient
-        colors={["#4A90E2", "#357ABD"]}
+        colors={["#3B82F6", "#2563EB"]}
         style={styles.header}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}

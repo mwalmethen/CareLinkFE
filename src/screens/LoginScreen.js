@@ -12,6 +12,7 @@ import {
   Animated,
   Dimensions,
   ActivityIndicator,
+  ScrollView,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -20,6 +21,43 @@ import { useUser } from "../api/UserContext";
 import { LinearGradient } from "expo-linear-gradient";
 
 const { width } = Dimensions.get("window");
+
+const InputField = ({
+  icon,
+  placeholder,
+  value,
+  onChangeText,
+  secureTextEntry,
+  keyboardType,
+  rightIcon,
+  onRightIconPress,
+}) => (
+  <View style={styles.inputWrapper}>
+    <LinearGradient
+      colors={["#4A90E2", "#357ABD"]}
+      style={styles.iconContainer}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+    >
+      <Ionicons name={icon} size={20} color="white" />
+    </LinearGradient>
+    <TextInput
+      style={styles.input}
+      placeholder={placeholder}
+      value={value}
+      placeholderTextColor="#666"
+      onChangeText={onChangeText}
+      secureTextEntry={secureTextEntry}
+      keyboardType={keyboardType}
+      autoCapitalize="none"
+    />
+    {rightIcon && (
+      <TouchableOpacity onPress={onRightIconPress} style={styles.rightIcon}>
+        <Ionicons name={rightIcon} size={20} color="#4A90E2" />
+      </TouchableOpacity>
+    )}
+  </View>
+);
 
 const LoginScreen = ({ navigation }) => {
   const { saveUser } = useUser();
@@ -95,7 +133,14 @@ const LoginScreen = ({ navigation }) => {
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <Ionicons name="arrow-back" size={24} color="#333" />
+          <LinearGradient
+            colors={["#4A90E2", "#357ABD"]}
+            style={styles.backButtonGradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          >
+            <Ionicons name="arrow-back" size={24} color="white" />
+          </LinearGradient>
         </TouchableOpacity>
 
         <KeyboardAvoidingView
@@ -103,7 +148,11 @@ const LoginScreen = ({ navigation }) => {
           style={styles.content}
           keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
         >
-          <View style={styles.scrollContainer}>
+          <ScrollView
+            style={styles.scrollContainer}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
             <Animated.View
               style={[
                 styles.logoContainer,
@@ -130,54 +179,28 @@ const LoginScreen = ({ navigation }) => {
               ]}
             >
               <Text style={styles.welcomeBack}>Welcome Back!</Text>
-              <Text style={styles.subtitle}>Please sign in to continue</Text>
+              <Text style={styles.subtitle}>
+                Continue your journey of caring
+              </Text>
 
               <View style={styles.inputContainer}>
-                <View style={styles.inputWrapper}>
-                  <Ionicons
-                    name="mail-outline"
-                    size={20}
-                    color="#4A90E2"
-                    style={styles.inputIcon}
-                  />
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Email Address"
-                    placeholderTextColor="#666"
-                    value={email}
-                    onChangeText={setEmail}
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    autoComplete="email"
-                  />
-                </View>
+                <InputField
+                  icon="mail-outline"
+                  placeholder="Email Address"
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                />
 
-                <View style={styles.inputWrapper}>
-                  <Ionicons
-                    name="lock-closed-outline"
-                    size={20}
-                    color="#4A90E2"
-                    style={styles.inputIcon}
-                  />
-                  <TextInput
-                    style={[styles.input, { flex: 1 }]}
-                    placeholder="Password"
-                    placeholderTextColor="#666"
-                    value={password}
-                    onChangeText={setPassword}
-                    secureTextEntry={!showPassword}
-                  />
-                  <TouchableOpacity
-                    onPress={() => setShowPassword(!showPassword)}
-                    style={styles.eyeButton}
-                  >
-                    <Ionicons
-                      name={showPassword ? "eye-off-outline" : "eye-outline"}
-                      size={20}
-                      color="#4A90E2"
-                    />
-                  </TouchableOpacity>
-                </View>
+                <InputField
+                  icon="lock-closed-outline"
+                  placeholder="Password"
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPassword}
+                  rightIcon={showPassword ? "eye-off-outline" : "eye-outline"}
+                  onRightIconPress={() => setShowPassword(!showPassword)}
+                />
 
                 <TouchableOpacity style={styles.forgotPassword}>
                   <Text style={styles.forgotPasswordText}>
@@ -218,7 +241,7 @@ const LoginScreen = ({ navigation }) => {
                 </Text>
               </TouchableOpacity>
             </Animated.View>
-          </View>
+          </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
     </LinearGradient>
@@ -233,7 +256,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   backButton: {
-    padding: 16,
+    margin: 16,
+    alignSelf: "flex-start",
+    borderRadius: 20,
+    overflow: "hidden",
+  },
+  backButtonGradient: {
+    padding: 8,
   },
   content: {
     flex: 1,
@@ -241,17 +270,17 @@ const styles = StyleSheet.create({
   scrollContainer: {
     flexGrow: 1,
     paddingHorizontal: 24,
-    justifyContent: "center",
   },
   logoContainer: {
     alignItems: "center",
+    marginTop: 20,
     marginBottom: 20,
   },
   logo: {
-    width: width * 0.4,
-    height: width * 0.4,
-    maxWidth: 180,
-    maxHeight: 180,
+    width: width * 0.35,
+    height: width * 0.35,
+    maxWidth: 150,
+    maxHeight: 150,
   },
   formContainer: {
     justifyContent: "center",
@@ -274,29 +303,33 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   inputContainer: {
-    gap: 20,
-    marginBottom: 32,
+    gap: 16,
+    marginBottom: 24,
   },
   inputWrapper: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "white",
     borderRadius: 12,
-    paddingHorizontal: 16,
     borderWidth: 1,
     borderColor: "#E1E1E1",
-    height: 56,
+    overflow: "hidden",
   },
-  inputIcon: {
-    marginRight: 12,
+  iconContainer: {
+    width: 48,
+    height: 48,
+    justifyContent: "center",
+    alignItems: "center",
   },
   input: {
     flex: 1,
+    height: 48,
+    paddingHorizontal: 16,
     fontSize: 16,
     color: "#333",
   },
-  eyeButton: {
-    padding: 8,
+  rightIcon: {
+    padding: 12,
   },
   forgotPassword: {
     alignSelf: "flex-end",
