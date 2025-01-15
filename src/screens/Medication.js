@@ -14,7 +14,6 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { getAllLovedOnes } from "../api/Users";
 import DropDownPicker from "react-native-dropdown-picker";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
 const MedicationForm = () => {
@@ -27,6 +26,7 @@ const MedicationForm = () => {
   const [open, setOpen] = useState(false);
   const [frequencyOpen, setFrequencyOpen] = useState(false);
   const [type, setType] = useState("");
+  const [statusType, setStatusType] = useState("");
   const [items, setItems] = useState([
     { label: "Select Status", value: "" },
     { label: "Active", value: "ACTIVE" },
@@ -40,6 +40,14 @@ const MedicationForm = () => {
     { label: "Monthly", value: "MONTHLY" },
     { label: "As Needed", value: "AS_NEEDED" },
   ]);
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [times, setTimes] = useState("");
+  const [instructions, setInstructions] = useState("");
+  const [purpose, setPurpose] = useState("");
+  const [prescribingDoctor, setPrescribingDoctor] = useState("");
+  const [pharmacy, setPharmacy] = useState("");
+  const [sideEffects, setSideEffects] = useState("");
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["lovedOnes"],
@@ -60,15 +68,20 @@ const MedicationForm = () => {
   const handleButtonPress = () => {
     const emergencyRequest = {
       loved_one: lovedOne,
-      requester: user.name,
       type: type,
       description: description,
+      times: times,
+      instructions: instructions,
+      purpose: purpose,
+      prescribing_doctor: prescribingDoctor,
+      pharmacy: pharmacy,
+      side_effects: sideEffects,
     };
     console.log(emergencyRequest);
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.keyboardView}
@@ -116,12 +129,69 @@ const MedicationForm = () => {
           </View>
 
           <View style={styles.section}>
+            <Text style={styles.label}>Status</Text>
+            <DropDownPicker
+              open={open}
+              value={statusType}
+              items={items}
+              setOpen={setOpen}
+              setValue={setStatusType}
+              setItems={setItems}
+              style={styles.input}
+              dropDownContainerStyle={styles.dropdownContainer}
+              textStyle={styles.dropdownText}
+              placeholderStyle={styles.dropdownPlaceholder}
+              placeholder="Select status type"
+              zIndex={2000}
+              zIndexInverse={2000}
+              listMode="SCROLLVIEW"
+            />
+          </View>
+
+          <View style={styles.section}>
             <Text style={styles.label}>Dosage</Text>
             <TextInput
               style={styles.input}
               placeholder="Enter Dosage"
               value={dosage}
               onChangeText={setDosage}
+              placeholderTextColor="#999"
+            />
+          </View>
+
+          <View
+            style={{ flexDirection: "row", justifyContent: "space-between" }}
+          >
+            <View style={{ flex: 1, marginRight: 5 }}>
+              <Text style={styles.label}>Start Date</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="YYYY-MM-DD"
+                value={startDate}
+                onChangeText={setStartDate}
+                placeholderTextColor="#999"
+              />
+            </View>
+
+            <View style={{ flex: 1, marginLeft: 5 }}>
+              <Text style={styles.label}>End Date</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="YYYY-MM-DD"
+                value={endDate}
+                onChangeText={setEndDate}
+                placeholderTextColor="#999"
+              />
+            </View>
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.label}>Times</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Enter times (comma separated)"
+              value={times}
+              onChangeText={setTimes}
               placeholderTextColor="#999"
             />
           </View>
@@ -147,22 +217,57 @@ const MedicationForm = () => {
           </View>
 
           <View style={styles.section}>
-            <Text style={styles.label}>Status</Text>
-            <DropDownPicker
-              open={open}
-              value={type}
-              items={items}
-              setOpen={setOpen}
-              setValue={setType}
-              setItems={setItems}
+            <Text style={styles.label}>Instructions</Text>
+            <TextInput
               style={styles.input}
-              dropDownContainerStyle={styles.dropdownContainer}
-              textStyle={styles.dropdownText}
-              placeholderStyle={styles.dropdownPlaceholder}
-              placeholder="Select status type"
-              zIndex={2000}
-              zIndexInverse={2000}
-              listMode="SCROLLVIEW"
+              placeholder="Enter instructions"
+              value={instructions}
+              onChangeText={setInstructions}
+              placeholderTextColor="#999"
+            />
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.label}>Purpose</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Enter purpose"
+              value={purpose}
+              onChangeText={setPurpose}
+              placeholderTextColor="#999"
+            />
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.label}>Prescribing Doctor</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Enter prescribing doctor's name"
+              value={prescribingDoctor}
+              onChangeText={setPrescribingDoctor}
+              placeholderTextColor="#999"
+            />
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.label}>Pharmacy</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Enter pharmacy name"
+              value={pharmacy}
+              onChangeText={setPharmacy}
+              placeholderTextColor="#999"
+            />
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.label}>Side Effects</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Enter side effects (comma separated)"
+              value={sideEffects}
+              onChangeText={setSideEffects}
+              placeholderTextColor="#999"
             />
           </View>
 
@@ -176,7 +281,7 @@ const MedicationForm = () => {
               multiline
               numberOfLines={4}
               textAlignVertical="top"
-              placeholderTextColor="#666"
+              placeholderTextColor="#999"
             />
           </View>
         </ScrollView>
@@ -190,7 +295,7 @@ const MedicationForm = () => {
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 };
 
