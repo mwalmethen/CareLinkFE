@@ -27,6 +27,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getTask } from "../api/CreateTask";
 import { useUser } from "../api/UserContext";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import NotificationsModal from "../components/NotificationsModal";
 
 const { width } = Dimensions.get("window");
 
@@ -240,6 +241,7 @@ const LovedOneDetailsScreen = ({ route, navigation }) => {
   const [caregiverModalVisible, setCaregiverModalVisible] = useState(false);
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
 
   // Add query to fetch tasks for this loved one
   const {
@@ -778,6 +780,21 @@ const LovedOneDetailsScreen = ({ route, navigation }) => {
         onDeleteCaregiver={handleDeleteCaregiver}
         onChangeRole={handleChangeRole}
       />
+      <TouchableOpacity
+        style={styles.alertButton}
+        onPress={() => setShowNotifications(true)}
+      >
+        <Ionicons name="notifications" size={24} color="#4A90E2" />
+        <Text style={styles.alertButtonText}>Emergency Alerts</Text>
+      </TouchableOpacity>
+
+      <NotificationsModal
+        visible={showNotifications}
+        onClose={() => setShowNotifications(false)}
+        lovedOneId={lovedOne._id}
+        invitations={[]}
+        isLoading={false}
+      />
     </SafeAreaView>
   );
 };
@@ -1145,6 +1162,26 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
     color: "#D97706",
+  },
+  alertButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 15,
+    backgroundColor: "white",
+    borderRadius: 10,
+    marginHorizontal: 20,
+    marginVertical: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  alertButtonText: {
+    marginLeft: 10,
+    fontSize: 16,
+    color: "#4A90E2",
+    fontWeight: "600",
   },
 });
 

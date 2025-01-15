@@ -107,11 +107,13 @@ const EmergencyButton = ({ navigation }) => {
 
         <ScrollView
           style={styles.formContainer}
-          keyboardShouldPersistTaps="handled"
-          nestedScrollEnabled={true}
+          showsVerticalScrollIndicator={false}
+          bounces={false}
         >
           <View style={[styles.section, { zIndex: 3000 }]}>
-            <Text style={styles.label}>Loved One *</Text>
+            <Text style={styles.label}>
+              Loved One <Text style={styles.requiredField}>*</Text>
+            </Text>
             <DropDownPicker
               open={lovedOneOpen}
               value={lovedOne}
@@ -121,8 +123,9 @@ const EmergencyButton = ({ navigation }) => {
               setItems={setLovedOneItems}
               placeholder="Select Loved One"
               style={styles.dropdown}
-              zIndex={3000}
-              listMode="SCROLLVIEW"
+              dropDownContainerStyle={styles.dropdownContainer}
+              textStyle={styles.dropdownText}
+              placeholderStyle={styles.dropdownPlaceholder}
             />
           </View>
 
@@ -157,17 +160,22 @@ const EmergencyButton = ({ navigation }) => {
           </View>
 
           <View style={styles.section}>
-            <Text style={styles.label}>Location *</Text>
+            <Text style={styles.label}>
+              Location <Text style={styles.requiredField}>*</Text>
+            </Text>
             <TextInput
               style={styles.input}
               value={location}
               onChangeText={setLocation}
               placeholder="Enter location (e.g., Home - Main Room)"
+              placeholderTextColor="#999"
             />
           </View>
 
           <View style={styles.section}>
-            <Text style={styles.label}>Description *</Text>
+            <Text style={styles.label}>
+              Description <Text style={styles.requiredField}>*</Text>
+            </Text>
             <TextInput
               style={styles.textArea}
               value={description}
@@ -175,30 +183,37 @@ const EmergencyButton = ({ navigation }) => {
               multiline
               numberOfLines={4}
               placeholder="Describe the emergency situation..."
+              placeholderTextColor="#999"
             />
           </View>
 
           <View style={styles.section}>
             <Text style={styles.label}>Response Needed By</Text>
-            <DateTimePicker
-              value={responseNeededBy}
-              mode="datetime"
-              display="default"
-              onChange={(event, selectedDate) => {
-                if (selectedDate) setResponseNeededBy(selectedDate);
-              }}
-            />
+            <View style={styles.datePickerContainer}>
+              <DateTimePicker
+                value={responseNeededBy}
+                mode="datetime"
+                display="default"
+                onChange={(event, selectedDate) => {
+                  if (selectedDate) setResponseNeededBy(selectedDate);
+                }}
+                style={{ height: 50 }}
+              />
+            </View>
           </View>
         </ScrollView>
 
         <View style={styles.footer}>
           <TouchableOpacity
-            style={styles.submitButton}
+            style={[
+              styles.submitButton,
+              loading && styles.submitButtonDisabled,
+            ]}
             onPress={handleButtonPress}
             disabled={loading}
           >
             {loading ? (
-              <ActivityIndicator color="white" />
+              <ActivityIndicator color="white" size="small" />
             ) : (
               <>
                 <Ionicons name="warning" size={24} color="white" />
@@ -224,106 +239,150 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: "row",
-    justifyContent: "center",
+    justifyContent: "space-between",
     alignItems: "center",
     padding: 20,
     backgroundColor: "white",
     borderBottomWidth: 1,
     borderBottomColor: "#E1E1E1",
-    zIndex: 1000,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   headerTitle: {
     fontSize: 24,
     fontWeight: "700",
     color: "#333",
+    textAlign: "center",
+    flex: 1,
   },
-  backButton: {
-    padding: 8,
+  formContainer: {
+    flex: 1,
+    padding: 20,
   },
-  formContainer: { flex: 1, padding: 20, gap: 24 },
   section: {
-    gap: 12,
+    marginBottom: 20,
+    backgroundColor: "white",
+    borderRadius: 12,
+    padding: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   label: {
     fontSize: 16,
     fontWeight: "600",
     color: "#333",
+    marginBottom: 8,
   },
   dropdown: {
     borderWidth: 1,
     borderColor: "#E1E1E1",
     borderRadius: 12,
     backgroundColor: "white",
+    paddingHorizontal: 12,
+    height: 50,
   },
-  dropdownContainer: {
+  input: {
     borderWidth: 1,
     borderColor: "#E1E1E1",
     borderRadius: 12,
-    backgroundColor: "white",
-  },
-  dropdownText: {
+    padding: 12,
     fontSize: 16,
     color: "#333",
-  },
-  dropdownPlaceholder: {
-    color: "#666",
-  },
-  requesterContainer: {
-    flexDirection: "row",
-    alignItems: "center",
     backgroundColor: "white",
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#E1E1E1",
-    gap: 12,
-  },
-  requesterText: {
-    fontSize: 16,
-    color: "#333",
+    height: 50,
   },
   textArea: {
-    backgroundColor: "white",
-    padding: 16,
-    borderRadius: 12,
     borderWidth: 1,
     borderColor: "#E1E1E1",
+    borderRadius: 12,
+    padding: 12,
     fontSize: 16,
-    minHeight: 120,
     color: "#333",
+    backgroundColor: "white",
+    minHeight: 120,
+    textAlignVertical: "top",
+  },
+  datePickerContainer: {
+    backgroundColor: "white",
+    borderWidth: 1,
+    borderColor: "#E1E1E1",
+    borderRadius: 12,
+    overflow: "hidden",
   },
   footer: {
     padding: 20,
     backgroundColor: "white",
     borderTopWidth: 1,
     borderTopColor: "#E1E1E1",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 5,
   },
   submitButton: {
     backgroundColor: "#EA4335",
-    padding: 16,
-    borderRadius: 12,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 12,
+    padding: 16,
+    borderRadius: 12,
     shadowColor: "#EA4335",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 8,
     elevation: 4,
   },
+  submitButtonDisabled: {
+    opacity: 0.7,
+  },
   submitButtonText: {
     color: "white",
     fontSize: 18,
     fontWeight: "600",
+    marginLeft: 8,
+  },
+  requiredField: {
+    color: "#EA4335",
+    marginLeft: 4,
+  },
+  dropdownContainer: {
+    borderWidth: 1,
+    borderColor: "#E1E1E1",
+    borderRadius: 12,
+    backgroundColor: "white",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  dropdownText: {
+    fontSize: 16,
+    color: "#333",
+  },
+  dropdownPlaceholder: {
+    color: "#999",
   },
   errorText: {
     color: "#EA4335",
-    fontSize: 16,
+    fontSize: 14,
+    marginTop: 4,
   },
-  noDataText: {
-    color: "#666",
-    fontSize: 16,
+  priorityHigh: {
+    backgroundColor: "#FBBC05",
+  },
+  priorityUrgent: {
+    backgroundColor: "#EA4335",
+  },
+  priorityCritical: {
+    backgroundColor: "#DB4437",
   },
 });
 

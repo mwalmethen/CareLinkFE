@@ -43,12 +43,32 @@ instance.interceptors.request.use(
 // Add this function to handle emergency alerts
 export const createEmergencyAlert = async (lovedOneId, alertData) => {
   try {
-    const response = await instance.post(
-      `/api/emergency-alerts/loved-one/${lovedOneId}`,
-      alertData
+    const token = await AsyncStorage.getItem("token");
+    if (!token) {
+      throw new Error("No authentication token found");
+    }
+
+    const response = await fetch(
+      `https://seal-app-doaaw.ondigitalocean.app/api/emergency-alerts/loved-one/${lovedOneId}`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(alertData),
+      }
     );
-    return response;
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || "Failed to create emergency alert");
+    }
+
+    const data = await response.json();
+    return data;
   } catch (error) {
+    console.error("Error creating emergency alert:", error);
     throw error;
   }
 };
@@ -56,11 +76,31 @@ export const createEmergencyAlert = async (lovedOneId, alertData) => {
 // Add function to get emergency alerts
 export const getEmergencyAlerts = async (lovedOneId) => {
   try {
-    const response = await instance.get(
-      `/api/emergency-alerts/loved-one/${lovedOneId}`
+    const token = await AsyncStorage.getItem("token");
+    if (!token) {
+      throw new Error("No authentication token found");
+    }
+
+    const response = await fetch(
+      `https://seal-app-doaaw.ondigitalocean.app/api/emergency-alerts/loved-one/${lovedOneId}`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      }
     );
-    return response;
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || "Failed to fetch emergency alerts");
+    }
+
+    const data = await response.json();
+    return data;
   } catch (error) {
+    console.error("Error fetching emergency alerts:", error);
     throw error;
   }
 };
