@@ -3,20 +3,21 @@ import {
   View,
   Text,
   TextInput,
-  Button,
   StyleSheet,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
   TouchableOpacity,
+  Alert,
 } from "react-native";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getAllLovedOnes } from "../api/Users";
 import DropDownPicker from "react-native-dropdown-picker";
 import { Ionicons } from "@expo/vector-icons";
+import { createMedication } from "../api/Medication";
 
-const MedicationForm = () => {
+const MedicationForm = ({ navigation }) => {
   const [lovedOne, setLovedOne] = useState("");
   const [lovedOneItems, setLovedOneItems] = useState([]);
   const [lovedOneOpen, setLovedOneOpen] = useState(false);
@@ -25,21 +26,8 @@ const MedicationForm = () => {
   const [note, setNote] = useState("");
   const [open, setOpen] = useState(false);
   const [frequencyOpen, setFrequencyOpen] = useState(false);
-  const [type, setType] = useState("");
-  const [statusType, setStatusType] = useState("");
-  const [items, setItems] = useState([
-    { label: "Select Status", value: "" },
-    { label: "Active", value: "ACTIVE" },
-    { label: "Discontinued", value: "DISCONTINUED" },
-    { label: "Completed", value: "COMPLETED" },
-  ]);
-  const [frequency, setFrequency] = useState([
-    { label: "Select Frequency", value: "" },
-    { label: "Daily", value: "DAILY" },
-    { label: "Weekly", value: "WEEKLY" },
-    { label: "Monthly", value: "MONTHLY" },
-    { label: "As Needed", value: "AS_NEEDED" },
-  ]);
+  const [status, setStatus] = useState("");
+  const [frequency, setFrequency] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [times, setTimes] = useState("");
@@ -48,6 +36,22 @@ const MedicationForm = () => {
   const [prescribingDoctor, setPrescribingDoctor] = useState("");
   const [pharmacy, setPharmacy] = useState("");
   const [sideEffects, setSideEffects] = useState("");
+  const queryClient = useQueryClient();
+
+  const [frequencyItems] = useState([
+    { label: "Select Frequency", value: "" },
+    { label: "Daily", value: "DAILY" },
+    { label: "Weekly", value: "WEEKLY" },
+    { label: "Monthly", value: "MONTHLY" },
+    { label: "As Needed", value: "AS_NEEDED" },
+  ]);
+
+  const [statusItems] = useState([
+    { label: "Select Status", value: "" },
+    { label: "Active", value: "ACTIVE" },
+    { label: "Discontinued", value: "DISCONTINUED" },
+    { label: "Completed", value: "COMPLETED" },
+  ]);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["lovedOnes"],
@@ -65,19 +69,103 @@ const MedicationForm = () => {
     }
   }, [data]);
 
-  const handleButtonPress = () => {
-    const emergencyRequest = {
-      loved_one: lovedOne,
-      type: type,
-      description: description,
-      times: times,
-      instructions: instructions,
-      purpose: purpose,
-      prescribing_doctor: prescribingDoctor,
-      pharmacy: pharmacy,
-      side_effects: sideEffects,
-    };
-    console.log(emergencyRequest);
+  const createMutation = useMutation({
+    mutationFn: ({ lovedOneId, newMedication }) =>
+      createMedication(lovedOneId, newMedication),
+    onMutate: async ({ lovedOneId, newMedication }) => {
+      await queryClient.cancelQueries({ queryKey: ["medications"] });
+
+      // Snapshot the previous value
+      const previousMedications = queryClient.getQueryData(["medications"]);
+
+      // Optimistically update to the new value
+      queryClient.setQueryData(["medications"], (old) => {
+        if (!old)
+          return {
+            pending: [newMedication],
+            completed: [],
+            all: [newMedication],
+          };
+        return {
+          ...old,
+          pending: [
+            ...(old.pending || []),
+            { ...newMedication, _id: Date.now().toString() },
+          ],
+          all: [
+            ...(old.all || []),
+            { ...newMedication, _id: Date.now().toString() },
+          ],
+        };
+      });
+
+      return { previousMedications };
+    },
+    onError: (err, variables, context) => {
+      queryClient.setQueryData(["medications"], context.previousMedications);
+      Alert.alert("Error", "Failed to create medication. Please try again.");
+    },
+    onSuccess: () => {
+      Alert.alert("Success", "Medication created successfully!", [
+        {
+          text: "OK",
+          onPress: () => navigation.goBack(),
+        },
+      ]);
+    },
+    onSettled: () => {
+      // Invalidate and refetch
+      queryClient.invalidateQueries({ queryKey: ["medications"] });
+    },
+  });
+
+  const handleButtonPress = async () => {
+    if (!lovedOne) {
+      Alert.alert("Error", "Please select a loved one");
+      return;
+    }
+
+    if (!startDate || !endDate) {
+      Alert.alert("Error", "Please enter valid start and end dates");
+      return;
+    }
+
+    const isValidStartDate = !isNaN(new Date(startDate).getTime());
+    const isValidEndDate = !isNaN(new Date(endDate).getTime());
+
+    if (!isValidStartDate || !isValidEndDate) {
+      Alert.alert("Error", "Please enter valid dates in the format YYYY-MM-DD");
+      return;
+    }
+
+    try {
+      const newMedication = {
+        loved_one: lovedOne,
+        name: medicationName,
+        dosage: dosage,
+        frequency: frequency,
+        start_date: new Date(startDate), // Convert to Date object
+        end_date: new Date(endDate), // Convert to Date object
+        notes: note,
+        times: times,
+        instructions: instructions,
+        purpose: purpose,
+        prescribing_doctor: prescribingDoctor,
+        pharmacy: pharmacy,
+        side_effects: sideEffects,
+        status: status,
+      };
+
+      console.log("New Medication Data:", newMedication);
+
+      createMutation.mutate({
+        lovedOneId: lovedOne,
+        newMedication,
+      });
+    } catch (error) {
+      console.error("Error creating medication:", error);
+      Alert.alert("Error", "Failed to create medication. Please try again.");
+    }
   };
 
   return (
@@ -89,32 +177,22 @@ const MedicationForm = () => {
         <ScrollView style={styles.formContainer}>
           <View style={styles.section}>
             <Text style={styles.label}>Loved One</Text>
-            {isLoading && <ActivityIndicator size="large" color="#4A90E2" />}
-            {error && (
-              <Text style={styles.errorText}>Failed to load loved ones.</Text>
-            )}
-            {!isLoading && !error && lovedOneItems.length > 0 ? (
-              <DropDownPicker
-                open={lovedOneOpen}
-                value={lovedOne}
-                items={lovedOneItems}
-                setOpen={setLovedOneOpen}
-                setValue={setLovedOne}
-                setItems={setLovedOneItems}
-                placeholder="Select Loved One"
-                style={styles.input}
-                dropDownContainerStyle={styles.dropdownContainer}
-                textStyle={styles.dropdownText}
-                placeholderStyle={styles.dropdownPlaceholder}
-                zIndex={3000}
-                zIndexInverse={1000}
-                listMode="SCROLLVIEW"
-              />
-            ) : (
-              !isLoading && (
-                <Text style={styles.noDataText}>No loved ones added yet.</Text>
-              )
-            )}
+            <DropDownPicker
+              open={lovedOneOpen}
+              value={lovedOne}
+              items={lovedOneItems}
+              setOpen={setLovedOneOpen}
+              setValue={setLovedOne}
+              setItems={setLovedOneItems}
+              placeholder="Select Loved One"
+              style={styles.input}
+              dropDownContainerStyle={styles.dropdownContainer}
+              textStyle={styles.dropdownText}
+              placeholderStyle={styles.dropdownPlaceholder}
+              zIndex={3000}
+              zIndexInverse={1000}
+              listMode="SCROLLVIEW"
+            />
           </View>
 
           <View style={styles.section}>
@@ -132,11 +210,10 @@ const MedicationForm = () => {
             <Text style={styles.label}>Status</Text>
             <DropDownPicker
               open={open}
-              value={statusType}
-              items={items}
+              value={status}
+              items={statusItems}
               setOpen={setOpen}
-              setValue={setStatusType}
-              setItems={setItems}
+              setValue={setStatus}
               style={styles.input}
               dropDownContainerStyle={styles.dropdownContainer}
               textStyle={styles.dropdownText}
@@ -200,11 +277,10 @@ const MedicationForm = () => {
             <Text style={styles.label}>Frequency</Text>
             <DropDownPicker
               open={frequencyOpen}
-              value={type}
-              items={frequency}
+              value={frequency}
+              items={frequencyItems}
               setOpen={setFrequencyOpen}
-              setValue={setType}
-              setItems={setFrequency}
+              setValue={setFrequency}
               style={styles.input}
               dropDownContainerStyle={styles.dropdownContainer}
               textStyle={styles.dropdownText}
