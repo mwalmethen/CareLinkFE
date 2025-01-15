@@ -25,6 +25,7 @@ import MedicationForm from "./src/screens/Medication";
 import LovedOnesListScreen from "./src/screens/LovedOnesListScreen";
 import CarePlanDetailsScreen from "./src/screens/CarePlanDetailsScreen";
 import { gestureHandlerRootHOC } from "react-native-gesture-handler";
+import MyRolesScreen from "./src/screens/MyRolesScreen";
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -126,6 +127,7 @@ export default function App() {
                 name="CarePlanDetails"
                 component={CarePlanDetailsScreen}
               />
+              <Stack.Screen name="MyRoles" component={MyRolesScreen} />
             </Stack.Navigator>
           </NavigationContainer>
         </SafeAreaProvider>
